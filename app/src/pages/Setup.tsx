@@ -16,8 +16,11 @@ export default function Setup() {
   }
   async function join(e: FormEvent) {
     e.preventDefault()
-    const { error } = await supabase.rpc('join_family', { code: code.trim(), my_name: name })
-    if (error) setMsg(error.message); else await refresh()
+    const { data, error } = await supabase.rpc('join_family', { code: code.trim(), my_name: name })
+    if (error) return setMsg(error.message)
+    if (data === 'invalid_code') return setMsg('That code was not recognised. Check it and try again.')
+    if (data === 'too_many_attempts') return setMsg('Too many wrong codes. Please wait an hour and try again.')
+    await refresh()
   }
 
   return (
