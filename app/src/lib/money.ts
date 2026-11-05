@@ -13,3 +13,7 @@ export const monthStart = (d = new Date()) =>
 export const nextMonthStart = (d = new Date()) =>
   new Date(d.getFullYear(), d.getMonth() + 1, 1).toLocaleDateString('sv')
 export const today = () => new Date().toLocaleDateString('sv')
+
+const whole = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
+/** Whole euros, for overviews where cents are noise. */
+export const euroWhole = (cents: number) => whole.format(cents / 100)

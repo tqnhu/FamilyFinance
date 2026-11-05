@@ -1,11 +1,11 @@
-import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { AuthProvider, useAuth } from './auth'
 import { configured, supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
 import ChooseUsername from './pages/ChooseUsername'
 import Dashboard from './pages/Dashboard'
-import Budgets from './pages/Budgets'
+import Plan from './pages/Plan'
 import Jars from './pages/Jars'
 import Goals from './pages/Goals'
 import Review from './pages/Review'
@@ -29,7 +29,8 @@ function Shell() {
           <Route path="/jars" element={<Jars />} />
           <Route path="/goals" element={<Goals />} />
           {member.role === 'parent' && <Route path="/review" element={<Review />} />}
-          {member.role === 'parent' && <Route path="/budgets" element={<Budgets />} />}
+          {member.role === 'parent' && <Route path="/plan" element={<Plan />} />}
+          <Route path="/budgets" element={<Navigate to="/plan" replace />} />
         </Routes>
       </main>
       <nav className="tabs">
@@ -37,7 +38,7 @@ function Shell() {
         <NavLink to="/jars"><span>🫙</span>Jars</NavLink>
         <NavLink to="/goals"><span>🎯</span>Goals</NavLink>
         {member.role === 'parent' && <NavLink to="/review"><span>📊</span>Review</NavLink>}
-        {member.role === 'parent' && <NavLink to="/budgets"><span>⚙️</span>Budgets</NavLink>}
+        {member.role === 'parent' && <NavLink to="/plan"><span>📋</span>Plan</NavLink>}
       </nav>
     </>
   )

@@ -52,3 +52,39 @@ input[type=range] { padding:0; margin-top:8px; accent-color:var(--brand) }
 .tabs a { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:.75rem; color:var(--muted); text-decoration:none; padding:4px 10px; font-weight:500 }
 .tabs a span { font-size:1.4rem } .tabs a.active { color:var(--brand); font-weight:700 }
 main { padding-bottom:120px } .fab { bottom:84px }
+
+/* Charts: palette tokens validated for light and dark (see dataviz palette.md) */
+.viz { --surface-1:#fcfcfb; --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781; --grid:#e1e0d9; --axis:#c3c2b7; --s1:#2a78d6; --s2:#eb6834;
+  background:var(--surface-1); color:var(--ink); border-radius:12px; padding:12px; position:relative }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) .viz { --surface-1:#1a1a19; --ink:#f0efec; --ink-2:#c3c2b7; --grid:#2c2c2a; --axis:#383835; --s1:#3987e5; --s2:#d95926 } }
+:root[data-theme="dark"] .viz { --surface-1:#1a1a19; --ink:#f0efec; --ink-2:#c3c2b7; --grid:#2c2c2a; --axis:#383835; --s1:#3987e5; --s2:#d95926 }
+.legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-bottom:8px; font-size:.85rem; color:var(--ink-2) }
+.key { display:inline-flex; align-items:center; gap:6px } .key i { display:inline-block }
+.key-box { width:10px; height:10px; border-radius:2px } .key-line { width:14px; height:2px; border-radius:1px } .key-tick { width:2px; height:12px; background:var(--ink-2) }
+.plot { position:relative } .plot svg { width:100%; height:auto; display:block; touch-action:pan-y }
+.plot .grid { stroke:var(--grid); stroke-width:1 } .plot .axis { stroke:var(--axis); stroke-width:1 } .plot .ref { stroke:var(--ink-2); stroke-width:1.5 }
+.plot .tick { fill:var(--muted); font-size:9.5px; font-variant-numeric:tabular-nums } .plot .peak { fill:var(--ink); font-size:10px; font-weight:600 }
+.plot .wash { fill:var(--ink); opacity:.06 } .plot rect:focus { outline:none } .plot rect:focus-visible { stroke:var(--s1); stroke-width:2 }
+.tip { position:absolute; z-index:3; pointer-events:none; min-width:150px; width:max-content; max-width:70%; white-space:nowrap; background:var(--surface-1); color:var(--ink);
+  border:1px solid var(--grid); border-radius:10px; padding:8px 10px; box-shadow:0 4px 14px #0003; font-size:.85rem }
+.tip-head { font-weight:600; margin-bottom:4px } .tip-row { display:flex; align-items:center; gap:8px; padding:1px 0 }
+.tip-row strong { min-width:64px; font-variant-numeric:tabular-nums } .tip-row span { color:var(--ink-2) } .tip-row.total { border-top:1px solid var(--grid); margin-top:3px; padding-top:4px }
+.bars { position:relative } .bar-row { display:grid; grid-template-columns:118px 1fr 64px; align-items:center; gap:8px; min-height:32px; border-radius:8px }
+.bar-row:hover, .bar-row:focus-visible { background:color-mix(in srgb, var(--ink) 6%, transparent); outline:none }
+.bar-name { font-size:.85rem; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+.bar-track { position:relative; height:14px; border-left:1px solid var(--axis) }
+.bar-fill { position:absolute; left:0; top:0; height:14px; background:var(--s1); border-radius:0 4px 4px 0; min-width:2px }
+.bar-tick { position:absolute; top:-4px; width:2px; height:22px; background:var(--ink-2) }
+.bar-val { text-align:right; font-size:.85rem; font-variant-numeric:tabular-nums; color:var(--ink) }
+.vtable { width:100%; border-collapse:collapse; font-size:.85rem } .vtable th { text-align:right; color:var(--ink-2); font-weight:500; padding:4px 6px; border-bottom:1px solid var(--axis) }
+.vtable td { text-align:right; padding:4px 6px; border-bottom:1px solid var(--grid); font-variant-numeric:tabular-nums } .vtable th:first-child, .vtable td:first-child { text-align:left }
+.seg { display:flex; gap:4px; background:var(--line); border-radius:12px; padding:3px; margin:4px 0 12px } .seg button { flex:1; border:none; background:none; padding:9px; border-radius:10px; font-weight:600; color:var(--muted) }
+.seg button.on { background:var(--card); color:var(--fg); box-shadow:0 1px 3px #0002 }
+.hero { font-size:3rem; font-weight:700; line-height:1.1 } .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px }
+.tile { background:var(--bg); border-radius:12px; padding:10px 12px } .tile b { display:block; font-size:1.25rem }
+.stepper { display:flex; align-items:center; justify-content:space-between; margin:4px 0 8px } .stepper button { padding:8px 14px } .stepper strong { font-size:1.2rem }
+.tag { display:inline-block; font-size:.75rem; padding:2px 8px; border-radius:10px; border:1px solid var(--line); color:var(--muted) }
+.tag.warn { color:var(--warn); border-color:var(--warn) } .tag.ok { color:var(--brand); border-color:var(--brand) }
+select { display:block; width:100%; padding:12px; margin-top:4px; font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:10px }
+.cat-btn { text-align:left; font-size:1rem; color:var(--fg); padding:6px 0 }
+a { color:var(--brand) }

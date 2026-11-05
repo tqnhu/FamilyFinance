@@ -4,6 +4,7 @@ import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
 import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
+import DueSoon from '../components/DueSoon'
 
 export default function Dashboard() {
   const { member } = useAuth()
@@ -24,9 +25,11 @@ export default function Dashboard() {
   }, [])
   useEffect(() => { void load() }, [load])
 
-  const total = expenses.reduce((s, x) => s + x.amount_cents, 0)
-  const budget = cats.reduce((s, c) => s + c.budget_cents, 0)
-  const spentBy = (id: string | null) => expenses.filter(x => x.category_id === id).reduce((s, x) => s + x.amount_cents, 0)
+  const everyday = expenses.filter(x => !x.bill_id) // yearly bill payments are tracked on the Plan page, not against budgets
+  const billsPaid = expenses.filter(x => x.bill_id).reduce((s, x) => s + x.amount_cents, 0)
+  const total = everyday.reduce((s, x) => s + x.amount_cents, 0)
+  const budget = cats.filter(c => !c.archived).reduce((s, c) => s + c.budget_cents, 0)
+  const spentBy = (id: string | null) => everyday.filter(x => x.category_id === id).reduce((s, x) => s + x.amount_cents, 0)
   const now = new Date()
   const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
   const catOf = (id: string | null) => cats.find(c => c.id === id)
@@ -44,13 +47,16 @@ export default function Dashboard() {
         <p className="muted">{isParent ? 'Family spending' : 'Your spending'} this month</p>
         <div className="big">{euro(total)}</div>
         {isParent && budget > 0 && <Bar spent={total} budget={budget} label={`of ${euro(budget)} budget · ${daysLeft} days left`} />}
+        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly bills paid this month.</p>}
       </section>
+
+      {isParent && <DueSoon />}
 
       <section className="card">
         <h2>By category</h2>
         {cats.map(c => {
           const s = spentBy(c.id)
-          if (!s && !c.budget_cents) return null
+          if (!s && (!c.budget_cents || c.archived)) return null
           return (
             <div key={c.id} className="cat">
               <div className="row"><span>{c.emoji} {c.name}</span><span>{euro(s)}{c.budget_cents > 0 && <span className="muted"> / {euro(c.budget_cents)}</span>}</span></div>
@@ -58,12 +64,12 @@ export default function Dashboard() {
             </div>
           )
         })}
-        {!expenses.length && <p className="muted">No expenses yet this month.</p>}
+        {!everyday.length && <p className="muted">No expenses yet this month.</p>}
       </section>
 
       <section className="card">
         <h2>Recent</h2>
-        {expenses.slice(0, 30).map(x => (
+        {everyday.slice(0, 30).map(x => (
           <div key={x.id} className="row item">
             <div>
               <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}</div>
@@ -78,7 +84,7 @@ export default function Dashboard() {
       </section>
 
       <button className="fab" aria-label="Add expense" onClick={() => setAdding(true)}>+</button>
-      {adding && <AddExpense cats={cats} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}
+      {adding && <AddExpense cats={cats.filter(c => !c.archived)} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}
     </>
   )
 }
