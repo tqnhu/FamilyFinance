@@ -6,6 +6,7 @@ import Setup from './pages/Setup'
 import ChooseUsername from './pages/ChooseUsername'
 import Dashboard from './pages/Dashboard'
 import Budgets from './pages/Budgets'
+import Jars from './pages/Jars'
 
 function Shell() {
   const { session, member, loading } = useAuth()
@@ -20,6 +21,7 @@ function Shell() {
         <strong>💶 {member.display_name}</strong>
         <nav>
           <NavLink to="/" end>Home</NavLink>
+          <NavLink to="/jars">Jars</NavLink>
           {member.role === 'parent' && <NavLink to="/budgets">Budgets</NavLink>}
           <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
         </nav>
@@ -27,6 +29,7 @@ function Shell() {
       <main>
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/jars" element={<Jars />} />
           {member.role === 'parent' && <Route path="/budgets" element={<Budgets />} />}
         </Routes>
       </main>

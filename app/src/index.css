@@ -27,3 +27,15 @@ button.link { background:none; border:none; color:var(--brand); padding:6px }
 .chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 }
 .chip { padding:10px 12px; border-radius:20px } .chip.on { background:var(--brand); color:#fff; border-color:var(--brand) }
 code { background:var(--bg); padding:2px 8px; border-radius:6px; font-size:1.1rem }
+
+/* Jars */
+.center-text { text-align:center }
+.jars { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:12px 0 }
+.jar { background:var(--card); border:2px solid var(--line); border-radius:18px; padding:14px 6px; text-align:center }
+.jar.spend { border-color:#f59e0b } .jar.save { border-color:#0f766e } .jar.give { border-color:#db2777 }
+.jar-emoji { font-size:2.2rem } .jar-amt { font-size:1.3rem; font-weight:700; margin:4px 0 } .jar-name { color:var(--muted); font-size:.9rem }
+.actions { display:grid; gap:10px; margin:12px 0 } .big-btn { padding:16px; font-size:1.1rem; border-radius:14px }
+.btn-row { display:flex; gap:10px; margin:10px 0 } .btn-row button { flex:1 }
+.card.attention { border:2px solid var(--warn) }
+.kid-head { display:flex; justify-content:space-between; width:100%; background:none; border:none; padding:4px 0; font-size:1.1rem }
+.pos { color:var(--brand) } .neg { color:var(--bad) } .good { color:var(--brand); font-weight:600 }
