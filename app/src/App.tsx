@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './auth'
 import { configured, supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Setup from './pages/Setup'
+import ChooseUsername from './pages/ChooseUsername'
 import Dashboard from './pages/Dashboard'
 import Budgets from './pages/Budgets'
 
@@ -12,6 +13,7 @@ function Shell() {
   if (loading) return <p className="muted center">Loading…</p>
   if (!session) return <Login />
   if (!member) return <Setup />
+  if (member.username === null) return <ChooseUsername /> // undefined = migration 003 not applied yet
   return (
     <>
       <header>
