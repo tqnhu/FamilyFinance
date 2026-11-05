@@ -39,3 +39,16 @@ code { background:var(--bg); padding:2px 8px; border-radius:6px; font-size:1.1re
 .card.attention { border:2px solid var(--warn) }
 .kid-head { display:flex; justify-content:space-between; width:100%; background:none; border:none; padding:4px 0; font-size:1.1rem }
 .pos { color:var(--brand) } .neg { color:var(--bad) } .good { color:var(--brand); font-weight:600 }
+
+/* Goals, badges, bottom tabs */
+.bar.big { height:16px; border-radius:10px }
+.estimate { background:var(--bg); border-radius:12px; padding:4px 12px; margin:10px 0 }
+input[type=range] { padding:0; margin-top:8px; accent-color:var(--brand) }
+.badges { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; margin-top:8px }
+.badge { border:1px dashed var(--line); border-radius:14px; padding:10px; text-align:center; opacity:.55 }
+.badge.on { opacity:1; border:2px solid var(--warn); background:var(--bg) }
+.badge-emoji { font-size:1.8rem } .badge-name { font-weight:600 }
+.tabs { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:space-around; background:var(--card); border-top:1px solid var(--line); padding:6px 0 max(6px, env(safe-area-inset-bottom)); z-index:5 }
+.tabs a { display:flex; flex-direction:column; align-items:center; gap:2px; font-size:.75rem; color:var(--muted); text-decoration:none; padding:4px 10px; font-weight:500 }
+.tabs a span { font-size:1.4rem } .tabs a.active { color:var(--brand); font-weight:700 }
+main { padding-bottom:120px } .fab { bottom:84px }

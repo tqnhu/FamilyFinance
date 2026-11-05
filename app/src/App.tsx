@@ -7,6 +7,8 @@ import ChooseUsername from './pages/ChooseUsername'
 import Dashboard from './pages/Dashboard'
 import Budgets from './pages/Budgets'
 import Jars from './pages/Jars'
+import Goals from './pages/Goals'
+import Review from './pages/Review'
 
 function Shell() {
   const { session, member, loading } = useAuth()
@@ -19,20 +21,24 @@ function Shell() {
     <>
       <header>
         <strong>💶 {member.display_name}</strong>
-        <nav>
-          <NavLink to="/" end>Home</NavLink>
-          <NavLink to="/jars">Jars</NavLink>
-          {member.role === 'parent' && <NavLink to="/budgets">Budgets</NavLink>}
-          <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
-        </nav>
+        <button className="link" onClick={() => supabase.auth.signOut()}>Sign out</button>
       </header>
       <main>
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/jars" element={<Jars />} />
+          <Route path="/goals" element={<Goals />} />
+          {member.role === 'parent' && <Route path="/review" element={<Review />} />}
           {member.role === 'parent' && <Route path="/budgets" element={<Budgets />} />}
         </Routes>
       </main>
+      <nav className="tabs">
+        <NavLink to="/" end><span>🏠</span>Home</NavLink>
+        <NavLink to="/jars"><span>🫙</span>Jars</NavLink>
+        <NavLink to="/goals"><span>🎯</span>Goals</NavLink>
+        {member.role === 'parent' && <NavLink to="/review"><span>📊</span>Review</NavLink>}
+        {member.role === 'parent' && <NavLink to="/budgets"><span>⚙️</span>Budgets</NavLink>}
+      </nav>
     </>
   )
 }

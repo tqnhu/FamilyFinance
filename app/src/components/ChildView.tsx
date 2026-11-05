@@ -4,6 +4,7 @@ import { euro, parseEuro } from '../lib/money'
 import { JARS, zero, type JarData } from '../lib/jars'
 import type { Jar } from '../lib/types'
 import Sheet from './Sheet'
+import Badges from './Badges'
 
 const STATUS = { pending: '⏳ Waiting', approved: '✅ Yes!', declined: '❌ Not now', cancelled: '↩️ Cancelled' }
 
@@ -40,6 +41,8 @@ export default function ChildView({ childId, data, onChange, asParent = false }:
           <button className="big-btn" onClick={() => setSheet('move')}>➡️ Move money to Save or Give</button>
         </div>
       )}
+
+      <Badges childId={asParent ? childId : undefined} />
 
       {reqs.length > 0 && (
         <section className="card">

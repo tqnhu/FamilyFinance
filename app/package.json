@@ -7,13 +7,12 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.0",
-    "chart.js": "^4.6.1",
     "react": "^19.3.1",
-    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5"
   },
@@ -25,6 +24,7 @@
     "oxlint": "^1.89.0",
     "typescript": "~7.0.2",
     "vite": "^8.3.5",
-    "vite-plugin-pwa": "^2.0.0"
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.0"
   }
 }
