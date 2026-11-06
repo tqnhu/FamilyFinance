@@ -87,10 +87,10 @@ export default function Dashboard() {
           const open = canEdit(x) ? () => setEditing(x) : undefined
           return (
             <div key={x.id} className={`row item ${open ? 'tappable' : ''}`} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined}
-              aria-label={open ? `Edit ${x.note || catOf(x.category_id)?.name || 'expense'}, ${euro(x.amount_cents)}` : undefined}
+              aria-label={open ? `Edit ${x.note || catOf(x.category_id)?.name || 'expense'}, ${euro(x.amount_cents)}${x.receipt_path ? ', has a receipt photo' : ''}` : undefined}
               onClick={open} onKeyDown={e => { if (open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open() } }}>
               <div>
-                <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}</div>
+                <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}{x.receipt_path && <span title="Has a receipt photo" aria-hidden> 📎</span>}</div>
                 <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}</div>
               </div>
               <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && <span className="muted small"> ✎</span>}</div>

@@ -6,8 +6,9 @@ import { euro, euroWhole, parseEuro, today } from '../lib/money'
 import { FREQ, MONTHS, dueList, monthlySetAside, useBills, yearlyCost, type Bill, type Due } from '../lib/bills'
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
+import ImportTab from './ImportTab'
 
-type Tab = 'budgets' | 'bills' | 'family'
+type Tab = 'budgets' | 'bills' | 'import' | 'family'
 
 export default function Plan() {
   const [params, setParams] = useSearchParams()
@@ -16,12 +17,13 @@ export default function Plan() {
   return (
     <>
       <div className="seg" role="tablist">
-        {([['budgets', 'Budgets'], ['bills', 'Yearly bills'], ['family', 'Family']] as const).map(([id, label]) => (
+        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import'], ['family', 'Family']] as const).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go(id)}>{label}</button>
         ))}
       </div>
       {tab === 'budgets' && <BudgetsTab />}
       {tab === 'bills' && <BillsTab />}
+      {tab === 'import' && <ImportTab />}
       {tab === 'family' && <FamilyTab />}
     </>
   )

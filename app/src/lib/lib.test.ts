@@ -188,3 +188,13 @@ describe('expense edit payload', () => {
     expect(changes({ ...old, category_id: null }, { ...same, cat: '' })).toEqual({})
   })
 })
+
+import { fitWithin } from './image'
+describe('fitWithin (receipt photo size)', () => {
+  it('shrinks the longest side to the limit, keeping the shape', () => {
+    expect(fitWithin(4000, 3000)).toEqual({ w: 1600, h: 1200 })
+    expect(fitWithin(3000, 4000)).toEqual({ w: 1200, h: 1600 })
+  })
+  it('never enlarges a small photo', () => expect(fitWithin(800, 600)).toEqual({ w: 800, h: 600 }))
+  it('survives extreme shapes', () => { expect(fitWithin(20000, 10).h).toBeGreaterThanOrEqual(1); expect(fitWithin(1, 1)).toEqual({ w: 1, h: 1 }) })
+})

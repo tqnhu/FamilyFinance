@@ -90,3 +90,8 @@ select { display:block; width:100%; padding:12px; margin-top:4px; font:inherit; 
 a { color:var(--brand) }
 .tappable { cursor:pointer; border-radius:8px } .tappable:hover, .tappable:focus-visible { background:color-mix(in srgb, var(--fg) 5%, transparent); outline:none }
 .tag { margin-left:8px } button.danger { color:var(--bad) }
+.receipt { margin:10px 0 } .receipt img { display:block; max-width:100%; max-height:220px; border-radius:10px; border:1px solid var(--line); margin-bottom:8px }
+.imp-list { margin:8px 0 } .imp-row { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:start; padding:10px 0; border-top:1px solid var(--line); content-visibility:auto; contain-intrinsic-size:auto 64px }
+.imp-row.off { opacity:.5 } .imp-row input[type=checkbox] { width:22px; height:22px; margin:2px 0 0 } .imp-main { min-width:0 } .imp-note { overflow-wrap:anywhere }
+.imp-side { display:flex; flex-direction:column; align-items:flex-end; gap:4px } .imp-side select { width:auto; max-width:150px; padding:6px; font-size:.85rem }
+[hidden] { display:none !important }
