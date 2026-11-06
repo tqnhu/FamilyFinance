@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
 import { isoDate } from '../lib/bills'
+import { isSeparateBill } from '../lib/expense'
 import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
 import DueSoon from '../components/DueSoon'
@@ -32,8 +33,9 @@ export default function Dashboard() {
   }, [offset])
   useEffect(() => { void load() }, [load])
 
-  const everyday = expenses.filter(x => !x.bill_id) // yearly bill payments are tracked on the Plan page, not against budgets
-  const billsPaid = expenses.filter(x => x.bill_id).reduce((s, x) => s + x.amount_cents, 0)
+  // Monthly fees count like any other spending. Yearly, half-yearly and quarterly bills are tracked on the Plan page instead.
+  const everyday = expenses.filter(x => !isSeparateBill(x))
+  const billsPaid = expenses.filter(isSeparateBill).reduce((s, x) => s + x.amount_cents, 0)
   const total = everyday.reduce((s, x) => s + x.amount_cents, 0)
   const budget = cats.filter(c => !c.archived).reduce((s, c) => s + c.budget_cents, 0)
   const spentBy = (id: string | null) => everyday.filter(x => x.category_id === id).reduce((s, x) => s + x.amount_cents, 0)
@@ -60,7 +62,7 @@ export default function Dashboard() {
         <p className="muted">{isParent ? 'Family spending' : 'Your spending'} {isCurrent ? 'this month' : `in ${monthLabel}`}</p>
         <div className="big">{euro(total)}</div>
         {isParent && budget > 0 && <Bar spent={total} budget={budget} label={`of ${euro(budget)} budget${isCurrent ? ` · ${daysLeft} days left` : ''}`} />}
-        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly bills paid {isCurrent ? 'this month' : 'that month'}.</p>}
+        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly and other non-monthly bills paid {isCurrent ? 'this month' : 'that month'}.</p>}
       </section>
 
       {isParent && isCurrent && <DueSoon />}
@@ -84,14 +86,14 @@ export default function Dashboard() {
         <h2>{isCurrent ? 'Recent' : 'Expenses'}</h2>
         {everyday.length > 0 && <p className="muted small">Tap an expense to fix a mistake.</p>}
         {(showAll ? everyday : everyday.slice(0, 30)).map(x => {
-          const open = canEdit(x) ? () => setEditing(x) : undefined
+          const open = canEdit(x) && !x.bill_id ? () => setEditing(x) : undefined // bill payments are changed on the Plan page
           return (
             <div key={x.id} className={`row item ${open ? 'tappable' : ''}`} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined}
               aria-label={open ? `Edit ${x.note || catOf(x.category_id)?.name || 'expense'}, ${euro(x.amount_cents)}${x.receipt_path ? ', has a receipt photo' : ''}` : undefined}
               onClick={open} onKeyDown={e => { if (open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open() } }}>
               <div>
                 <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}{x.receipt_path && <span title="Has a receipt photo" aria-hidden> 📎</span>}</div>
-                <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}</div>
+                <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}{x.bill_id && <span className="tag">monthly bill</span>}</div>
               </div>
               <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && <span className="muted small"> ✎</span>}</div>
             </div>

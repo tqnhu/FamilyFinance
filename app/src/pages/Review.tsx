@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { euroWhole } from '../lib/money'
 import { MONTHS } from '../lib/bills'
+import { isSeparateBill } from '../lib/expense'
 import { yearModel, type SummaryRow, type YearModel } from '../lib/year'
 import { CategoryBars, MonthlyChart } from '../components/charts'
 import { supabase } from '../lib/supabase'
@@ -31,7 +32,7 @@ function MonthReview() {
       supabase.from('expenses').select('*').gte('spent_on', from).lt('spent_on', to),
     ]).then(([c, e]) => {
       if (c.error || e.error) return setError((c.error ?? e.error)!.message)
-      setR(review(((e.data ?? []) as Expense[]).filter(x => !x.bill_id), (c.data ?? []) as Category[]))
+      setR(review(((e.data ?? []) as Expense[]).filter(x => !isSeparateBill(x)), (c.data ?? []) as Category[]))
     })
   }, [])
 
@@ -44,7 +45,7 @@ function MonthReview() {
   return (
     <>
       <section className="card">
-        <p className="muted">{month} so far, compared with the same days last month · everyday spending (yearly bills are in the Year view)</p>
+        <p className="muted">{month} so far, compared with the same days last month · including monthly fees (yearly bills are in the Year view)</p>
         <div className="big">{euro(r.totalNow)}</div>
         {r.totalPct === null
           ? <p className="muted">No spending last month to compare with yet.</p>
@@ -147,6 +148,7 @@ function YearView() {
         </div>
       </section>
 
+      <p className="muted small">Monthly fees (like a subscription) are counted as Everyday, in the month they were charged. Yearly, half-yearly and quarterly bills are shown separately.</p>
       <section className="card"><h2>Spending by month</h2><MonthlyChart model={model} year={year} /></section>
       <section className="card"><h2>Everyday spending by category</h2><CategoryBars categories={model.categories} /></section>
     </div>

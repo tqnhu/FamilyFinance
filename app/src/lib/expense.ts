@@ -9,3 +9,9 @@ export function changes(old: Expense, now: { cents: number; cat: string; note: s
   if (now.date !== old.spent_on) out.spent_on = now.date
   return out
 }
+
+/**
+ * A bill payment that is kept out of everyday spending and the monthly budgets: yearly, half-yearly and quarterly
+ * bills. A monthly fee is ordinary spending in the month it was charged, so it is not "separate".
+ */
+export const isSeparateBill = (x: Pick<Expense, 'bill_id' | 'monthly_fee'>) => Boolean(x.bill_id) && !x.monthly_fee

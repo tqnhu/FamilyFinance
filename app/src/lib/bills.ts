@@ -26,6 +26,9 @@ export function dueDates(b: Pick<Bill, 'times_per_year' | 'due_month' | 'due_day
 }
 
 export const yearlyCost = (b: Pick<Bill, 'amount_cents' | 'times_per_year'>) => b.amount_cents * b.times_per_year
+/** A bill charged every month is ordinary monthly spending: it belongs in the budgets, not in "put aside". */
+export const isMonthlyBill = (b: Pick<Bill, 'times_per_year'>) => b.times_per_year === 12
+
 /** What to put aside each month so the bill never comes as a shock. */
 export const monthlySetAside = (b: Pick<Bill, 'amount_cents' | 'times_per_year'>) => Math.round(yearlyCost(b) / 12)
 

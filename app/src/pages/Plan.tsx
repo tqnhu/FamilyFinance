@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro, euroWhole, parseEuro, today } from '../lib/money'
-import { FREQ, MONTHS, dueList, monthlySetAside, useBills, yearlyCost, type Bill, type Due } from '../lib/bills'
+import { FREQ, MONTHS, dueList, isMonthlyBill, monthlySetAside, useBills, yearlyCost, type Bill, type Due } from '../lib/bills'
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
 import ImportTab from './ImportTab'
@@ -46,7 +46,7 @@ function BudgetsTab() {
 
   const active = cats.filter(c => !c.archived), old = cats.filter(c => c.archived)
   const monthly = active.reduce((s, c) => s + c.budget_cents, 0)
-  const setAside = bills.filter(b => !b.archived).reduce((s, b) => s + monthlySetAside(b), 0)
+  const setAside = bills.filter(b => !b.archived && !isMonthlyBill(b)).reduce((s, b) => s + monthlySetAside(b), 0) // monthly fees are already inside the everyday budgets
 
   async function setBudget(c: Category, value: string) {
     const n = Number(value.replace(',', '.'))
@@ -62,9 +62,9 @@ function BudgetsTab() {
       <section className="card">
         <h2>Your plan</h2>
         <div className="row"><span>Everyday budgets</span><strong>{euro(monthly)} / month</strong></div>
-        <div className="row"><span>Yearly bills to put aside</span><strong>{euro(setAside)} / month</strong></div>
+        <div className="row"><span>Bills to put aside (not monthly)</span><strong>{euro(setAside)} / month</strong></div>
         <div className="row item"><span>Total to plan for</span><strong>{euro(monthly + setAside)} / month</strong></div>
-        <p className="muted small">That is {euroWhole((monthly + setAside) * 12)} a year. Yearly bills are not counted against the everyday budgets below.</p>
+        <p className="muted small">That is {euroWhole((monthly + setAside) * 12)} a year. Monthly fees count in the budgets below, in their category. Yearly, half-yearly and quarterly bills are kept apart so one big payment does not wreck a month.</p>
       </section>
 
       <section className="card">
@@ -172,17 +172,18 @@ function BillsTab() {
           <div className="tile"><span className="muted small">Paid so far</span><b>{euroWhole(paidTotal)}</b></div>
           <div className="tile"><span className="muted small">Still to pay</span><b>{euroWhole(todoTotal)}</b></div>
           <div className="tile"><span className="muted small">All bills, per year</span><b>{euroWhole(active.reduce((s, b) => s + yearlyCost(b), 0))}</b></div>
-          <div className="tile"><span className="muted small">Put aside monthly</span><b>{euroWhole(active.reduce((s, b) => s + monthlySetAside(b), 0))}</b></div>
+          <div className="tile"><span className="muted small">Put aside monthly</span><b>{euroWhole(active.filter(b => !isMonthlyBill(b)).reduce((s, b) => s + monthlySetAside(b), 0))}</b></div>
         </div>
       </section>
 
-      <button className="primary" onClick={() => setEdit('new')}>＋ Add a yearly bill</button>
+      <p className="muted small">Bills charged every month count as normal spending in the month they are paid. The rest are kept apart from your monthly budgets.</p>
+      <button className="primary" onClick={() => setEdit('new')}>＋ Add a bill</button>
       {!active.length && <section className="card"><p className="muted">Add things like car insurance, home insurance, road tax or a yearly subscription. You will see when each is due, mark it paid, and the money counts in the yearly overview.</p></section>}
 
       {active.map(b => (
         <section key={b.id} className="card">
           <div className="row"><h2>{b.name}</h2><strong>{euro(b.amount_cents)}</strong></div>
-          <p className="muted small">{FREQ[b.times_per_year]} · {catOf(b.category_id) ? `${catOf(b.category_id)!.emoji} ${catOf(b.category_id)!.name}` : 'No category'} · {euro(monthlySetAside(b))} a month to put aside</p>
+          <p className="muted small">{FREQ[b.times_per_year]} · {catOf(b.category_id) ? `${catOf(b.category_id)!.emoji} ${catOf(b.category_id)!.name}` : 'No category'} · {isMonthlyBill(b) ? 'counts in your monthly budget' : `${euro(monthlySetAside(b))} a month to put aside`}</p>
           {dues.filter(d => d.bill.id === b.id).map(d => (
             <div key={d.due} className="row item">
               <div>

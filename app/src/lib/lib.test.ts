@@ -198,3 +198,18 @@ describe('fitWithin (receipt photo size)', () => {
   it('never enlarges a small photo', () => expect(fitWithin(800, 600)).toEqual({ w: 800, h: 600 }))
   it('survives extreme shapes', () => { expect(fitWithin(20000, 10).h).toBeGreaterThanOrEqual(1); expect(fitWithin(1, 1)).toEqual({ w: 1, h: 1 }) })
 })
+
+import { isSeparateBill } from './expense'
+import { isMonthlyBill } from './bills'
+describe('which bill payments count as everyday spending', () => {
+  it('ordinary expenses and monthly fees count; yearly-type bills are kept apart', () => {
+    expect(isSeparateBill({ bill_id: null, monthly_fee: false })).toBe(false)
+    expect(isSeparateBill({})).toBe(false)
+    expect(isSeparateBill({ bill_id: 'b', monthly_fee: true })).toBe(false) // a monthly fee is ordinary spending
+    expect(isSeparateBill({ bill_id: 'b', monthly_fee: false })).toBe(true)
+    expect(isSeparateBill({ bill_id: 'b' })).toBe(true) // payments from before the flag existed
+  })
+  it('only monthly bills skip the "put aside" amount', () => {
+    expect([1, 2, 4, 12].map(n => isMonthlyBill({ times_per_year: n as 1 | 2 | 4 | 12 }))).toEqual([false, false, false, true])
+  })
+})
