@@ -22,8 +22,8 @@ button.link { background:none; border:none; color:var(--brand); padding:6px }
 .bar { height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:6px 0 }
 .fill { height:100% } .fill.ok { background:var(--brand) } .fill.warn { background:var(--warn) } .fill.over { background:var(--bad) }
 .fab { position:fixed; right:20px; bottom:24px; width:60px; height:60px; border-radius:50%; background:var(--brand); color:#fff; font-size:2rem; border:none; padding:0; box-shadow:0 4px 14px #0004 }
-.modal { position:fixed; inset:0; background:#0007; display:flex; align-items:flex-end; justify-content:center }
-.sheet { background:var(--card); width:100%; max-width:560px; border-radius:18px 18px 0 0; padding:18px; max-height:92vh; overflow:auto }
+.modal { position:fixed; inset:0; z-index:20; background:#0007; display:flex; align-items:flex-end; justify-content:center }
+.sheet { background:var(--card); width:100%; max-width:560px; border-radius:18px 18px 0 0; padding:18px 18px max(18px, env(safe-area-inset-bottom)); max-height:92vh; overflow:auto }
 .chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 }
 .chip { padding:10px 12px; border-radius:20px } .chip.on { background:var(--brand); color:#fff; border-color:var(--brand) }
 code { background:var(--bg); padding:2px 8px; border-radius:6px; font-size:1.1rem }
@@ -88,3 +88,5 @@ main { padding-bottom:120px } .fab { bottom:84px }
 select { display:block; width:100%; padding:12px; margin-top:4px; font:inherit; color:var(--fg); background:var(--bg); border:1px solid var(--line); border-radius:10px }
 .cat-btn { text-align:left; font-size:1rem; color:var(--fg); padding:6px 0 }
 a { color:var(--brand) }
+.tappable { cursor:pointer; border-radius:8px } .tappable:hover, .tappable:focus-visible { background:color-mix(in srgb, var(--fg) 5%, transparent); outline:none }
+.tag { margin-left:8px } button.danger { color:var(--bad) }

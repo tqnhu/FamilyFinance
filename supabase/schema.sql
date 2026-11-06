@@ -599,3 +599,26 @@ $$;
 
 revoke execute on function mark_bill_paid(uuid, date, integer, date), unmark_bill_paid(uuid), year_summary(integer) from public, anon;
 grant execute on function mark_bill_paid(uuid, date, integer, date), unmark_bill_paid(uuid), year_summary(integer) to authenticated;
+
+-- ===== Phase 5: editing expenses (migrations/007_edit_expenses.sql) =====
+alter table expenses add column edited_at timestamptz, add column edited_by uuid references members(user_id) on delete set null;
+
+create function stamp_expense_edit() returns trigger language plpgsql as $$
+begin
+  if (new.amount_cents, new.category_id, new.note, new.spent_on) is distinct from (old.amount_cents, old.category_id, old.note, old.spent_on) then
+    new.edited_at := now();
+    new.edited_by := auth.uid();
+  else  -- nothing real changed: keep the previous stamp
+    new.edited_at := old.edited_at;
+    new.edited_by := old.edited_by;
+  end if;
+  return new;
+end $$;
+create trigger expenses_stamp_edit before update on expenses for each row execute function stamp_expense_edit();
+
+-- Bill payments are changed by undoing and re-marking them (so the payment record never disagrees with the expense).
+drop policy "edit expenses" on expenses;
+create policy "edit expenses" on expenses for update
+  using (family_id = my_family() and bill_id is null and (is_parent() or member_id = auth.uid()))
+  with check (family_id = my_family() and bill_id is null and (is_parent() or member_id = auth.uid())
+    and (category_id is null or exists (select 1 from categories c where c.id = category_id and c.family_id = my_family())));

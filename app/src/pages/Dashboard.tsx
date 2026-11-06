@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
+import { isoDate } from '../lib/bills'
 import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
 import DueSoon from '../components/DueSoon'
@@ -12,17 +13,23 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [people, setPeople] = useState<Member[]>([])
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<Expense | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [offset, setOffset] = useState(0) // 0 = this month, -1 = last month, ... (so older mistakes can be fixed too)
   const isParent = member?.role === 'parent'
+  const viewed = new Date(new Date().getFullYear(), new Date().getMonth() + offset, 1)
+  const isCurrent = offset === 0
 
   const load = useCallback(async () => {
     const [c, e, m] = await Promise.all([
       supabase.from('categories').select('*').order('name'),
-      supabase.from('expenses').select('*').gte('spent_on', monthStart()).lt('spent_on', nextMonthStart())
+      supabase.from('expenses').select('*').gte('spent_on', monthStart(viewed)).lt('spent_on', nextMonthStart(viewed))
         .order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('members').select('*'),
     ])
     setCats(c.data ?? []); setExpenses(e.data ?? []); setPeople(m.data ?? [])
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offset])
   useEffect(() => { void load() }, [load])
 
   const everyday = expenses.filter(x => !x.bill_id) // yearly bill payments are tracked on the Plan page, not against budgets
@@ -35,22 +42,28 @@ export default function Dashboard() {
   const catOf = (id: string | null) => cats.find(c => c.id === id)
   const nameOf = (id: string) => people.find(p => p.user_id === id)?.display_name ?? '?'
 
-  async function remove(id: string) {
-    if (!confirm('Delete this expense?')) return
-    await supabase.from('expenses').delete().eq('id', id)
-    void load()
-  }
+  const canEdit = (x: Expense) => isParent || x.member_id === member?.user_id
+  // the edit sheet must offer the expense's current category even if it has since been archived
+  const editCats = (x: Expense) => cats.filter(c => !c.archived || c.id === x.category_id)
+  const monthLabel = viewed.toLocaleDateString('en-IE', { month: 'long', year: 'numeric' })
+  const lastDayOfViewed = isoDate(new Date(viewed.getFullYear(), viewed.getMonth() + 1, 0))
 
   return (
     <>
+      <div className="stepper">
+        <button aria-label="Previous month" onClick={() => { setOffset(offset - 1); setShowAll(false) }} disabled={offset <= -24}>‹</button>
+        <strong>{isCurrent ? 'This month' : monthLabel}</strong>
+        <button aria-label="Next month" onClick={() => { setOffset(offset + 1); setShowAll(false) }} disabled={isCurrent}>›</button>
+      </div>
+
       <section className="card">
-        <p className="muted">{isParent ? 'Family spending' : 'Your spending'} this month</p>
+        <p className="muted">{isParent ? 'Family spending' : 'Your spending'} {isCurrent ? 'this month' : `in ${monthLabel}`}</p>
         <div className="big">{euro(total)}</div>
-        {isParent && budget > 0 && <Bar spent={total} budget={budget} label={`of ${euro(budget)} budget · ${daysLeft} days left`} />}
-        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly bills paid this month.</p>}
+        {isParent && budget > 0 && <Bar spent={total} budget={budget} label={`of ${euro(budget)} budget${isCurrent ? ` · ${daysLeft} days left` : ''}`} />}
+        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly bills paid {isCurrent ? 'this month' : 'that month'}.</p>}
       </section>
 
-      {isParent && <DueSoon />}
+      {isParent && isCurrent && <DueSoon />}
 
       <section className="card">
         <h2>By category</h2>
@@ -64,27 +77,32 @@ export default function Dashboard() {
             </div>
           )
         })}
-        {!everyday.length && <p className="muted">No expenses yet this month.</p>}
+        {!everyday.length && <p className="muted">No expenses {isCurrent ? 'yet this month' : 'in this month'}.</p>}
       </section>
 
       <section className="card">
-        <h2>Recent</h2>
-        {everyday.slice(0, 30).map(x => (
-          <div key={x.id} className="row item">
-            <div>
-              <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}</div>
-              <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}</div>
+        <h2>{isCurrent ? 'Recent' : 'Expenses'}</h2>
+        {everyday.length > 0 && <p className="muted small">Tap an expense to fix a mistake.</p>}
+        {(showAll ? everyday : everyday.slice(0, 30)).map(x => {
+          const open = canEdit(x) ? () => setEditing(x) : undefined
+          return (
+            <div key={x.id} className={`row item ${open ? 'tappable' : ''}`} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined}
+              aria-label={open ? `Edit ${x.note || catOf(x.category_id)?.name || 'expense'}, ${euro(x.amount_cents)}` : undefined}
+              onClick={open} onKeyDown={e => { if (open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open() } }}>
+              <div>
+                <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}</div>
+                <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}</div>
+              </div>
+              <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && <span className="muted small"> ✎</span>}</div>
             </div>
-            <div className="right">
-              <strong>{euro(x.amount_cents)}</strong>
-              {(isParent || x.member_id === member?.user_id) && <button className="link small" onClick={() => remove(x.id)}>delete</button>}
-            </div>
-          </div>
-        ))}
+          )
+        })}
+        {!showAll && everyday.length > 30 && <button className="link" onClick={() => setShowAll(true)}>Show all {everyday.length}</button>}
       </section>
 
       <button className="fab" aria-label="Add expense" onClick={() => setAdding(true)}>+</button>
-      {adding && <AddExpense cats={cats.filter(c => !c.archived)} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}
+      {adding && <AddExpense cats={cats.filter(c => !c.archived)} defaultDate={isCurrent ? undefined : lastDayOfViewed} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}
+      {editing && <AddExpense expense={editing} cats={editCats(editing)} nameOf={nameOf} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load() }} />}
     </>
   )
 }

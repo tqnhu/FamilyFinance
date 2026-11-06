@@ -173,3 +173,18 @@ describe('niceAxis', () => {
   it('always covers the maximum', () => { for (const v of [1, 99, 1234, 98765, 4_000_000]) expect(niceAxis(v).top).toBeGreaterThanOrEqual(v) })
   it('has a sensible empty case', () => expect(niceAxis(0).ticks[0]).toBe(0))
 })
+
+import { changes } from './expense'
+describe('expense edit payload', () => {
+  const old: Expense = { id: 'x', member_id: 'm', category_id: 'a', amount_cents: 1250, note: 'lunch', spent_on: '2026-11-03' }
+  const same = { cents: 1250, cat: 'a', note: 'lunch', date: '2026-11-03' }
+  it('is empty when nothing changed, so nothing is sent', () => expect(changes(old, same)).toEqual({}))
+  it('sends only the fields that changed', () => {
+    expect(changes(old, { ...same, cents: 2150 })).toEqual({ amount_cents: 2150 })
+    expect(changes(old, { ...same, cat: 'b', note: 'dinner' })).toEqual({ category_id: 'b', note: 'dinner' })
+    expect(changes(old, { ...same, date: '2026-11-02' })).toEqual({ spent_on: '2026-11-02' })
+  })
+  it('never sends an empty category (an uncategorised expense stays as it is)', () => {
+    expect(changes({ ...old, category_id: null }, { ...same, cat: '' })).toEqual({})
+  })
+})
