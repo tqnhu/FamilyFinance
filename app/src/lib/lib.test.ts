@@ -213,3 +213,21 @@ describe('which bill payments count as everyday spending', () => {
     expect([1, 2, 4, 12].map(n => isMonthlyBill({ times_per_year: n as 1 | 2 | 4 | 12 }))).toEqual([false, false, false, true])
   })
 })
+
+import { joinMessage } from './join'
+describe('joinMessage', () => {
+  it('is null once the person is in the family', () => {
+    for (const ok of ['parent', 'child', 'already_in_this_family']) expect(joinMessage(ok)).toBeNull()
+  })
+  it('explains every way it can fail, in plain words', () => {
+    for (const bad of ['invalid_code', 'too_many_attempts', 'name_required', 'already_member']) {
+      const m = joinMessage(bad)
+      expect(m).toBeTruthy(); expect(m).not.toContain('_') // never shows a code word to a person
+    }
+    expect(joinMessage('invalid_code')).toContain('12')
+    expect(joinMessage('too_many_attempts')).toContain('hour')
+  })
+  it('never treats an unknown answer as success', () => {
+    for (const odd of [null, undefined, '', 'PARENT', 42, {}]) expect(joinMessage(odd)).toBeTruthy()
+  })
+})

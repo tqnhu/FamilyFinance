@@ -95,3 +95,4 @@ a { color:var(--brand) }
 .imp-row.off { opacity:.5 } .imp-row input[type=checkbox] { width:22px; height:22px; margin:2px 0 0 } .imp-main { min-width:0 } .imp-note { overflow-wrap:anywhere }
 .imp-side { display:flex; flex-direction:column; align-items:flex-end; gap:4px } .imp-side select { width:auto; max-width:150px; padding:6px; font-size:.85rem }
 [hidden] { display:none !important }
+.narrow h2 { margin-top:22px }
