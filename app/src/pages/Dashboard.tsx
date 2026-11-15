@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
@@ -8,6 +9,8 @@ import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
 import DueSoon from '../components/DueSoon'
 import ExpenseList from '../components/ExpenseList'
+import Bar from '../components/Bar'
+import { categoryExpenses, latest, monthKey, monthOffset } from '../lib/category'
 
 export default function Dashboard() {
   const { member } = useAuth()
@@ -16,7 +19,9 @@ export default function Dashboard() {
   const [people, setPeople] = useState<Member[]>([])
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
-  const [offset, setOffset] = useState(0) // 0 = this month, -1 = last month, ... (so older mistakes can be fixed too)
+  const [params] = useSearchParams()
+  // 0 = this month, -1 = last month, ... (so older mistakes can be fixed too). A ?month=YYYY-MM in the address opens that month (the back link of a category page uses it).
+  const [offset, setOffset] = useState(() => monthOffset(params.get('month')) ?? 0)
   const isParent = member?.role === 'parent'
   const viewed = new Date(new Date().getFullYear(), new Date().getMonth() + offset, 1)
   const isCurrent = offset === 0
@@ -71,11 +76,26 @@ export default function Dashboard() {
         {cats.map(c => {
           const s = spentBy(c.id)
           if (!s && (!c.budget_cents || c.archived)) return null
+          const mine = categoryExpenses(expenses, c.id) // the same expenses the amount above adds up
+          const top = latest(mine, 3)
           return (
-            <div key={c.id} className="cat">
-              <div className="row"><span>{c.emoji} {c.name}</span><span>{euro(s)}{c.budget_cents > 0 && <span className="muted"> / {euro(c.budget_cents)}</span>}</span></div>
+            <Link key={c.id} className="cat catlink" to={`/review?category=${c.id}&month=${monthKey(viewed)}`}
+              aria-label={`${c.name}: ${euro(s)}. Open all expenses in this category`} aria-describedby={`pop-${c.id}`}>
+              <div className="row"><span>{c.emoji} {c.name}</span><span>{euro(s)}{c.budget_cents > 0 && <span className="muted"> / {euro(c.budget_cents)}</span>}<span className="muted small"> ›</span></span></div>
               {c.budget_cents > 0 && isParent && <Bar spent={s} budget={c.budget_cents} />}
-            </div>
+              <div className="cat-pop" role="tooltip" id={`pop-${c.id}`}>
+                <div className="pop-head">{c.emoji} {c.name} · {isCurrent ? 'this month' : monthLabel}</div>
+                {top.length === 0 && <div className="muted small">No expenses yet.</div>}
+                {top.map(x => (
+                  <div key={x.id} className="pop-row">
+                    <span className="pop-date">{new Date(x.spent_on + 'T12:00:00').toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</span>
+                    <span className="pop-note">{x.note || c.name}{isParent && <span className="muted"> · {nameOf(x.member_id)}</span>}</span>
+                    <strong>{euro(x.amount_cents)}</strong>
+                  </div>
+                ))}
+                <div className="muted small pop-foot">{mine.length > 3 ? `+${mine.length - 3} more · ` : ''}Click to see all</div>
+              </div>
+            </Link>
           )
         })}
         {!everyday.length && <p className="muted">No expenses {isCurrent ? 'yet this month' : 'in this month'}.</p>}
@@ -88,17 +108,5 @@ export default function Dashboard() {
       {adding && <AddExpense cats={cats.filter(c => !c.archived)} defaultDate={isCurrent ? undefined : lastDayOfViewed} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}
       {editing && <AddExpense expense={editing} cats={editCats(editing)} nameOf={nameOf} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load() }} />}
     </>
-  )
-}
-
-function Bar({ spent, budget, label }: { spent: number; budget: number; label?: string }) {
-  const pct = Math.min(100, Math.round((spent / budget) * 100))
-  const state = spent > budget ? 'over' : spent >= budget * 0.8 ? 'warn' : 'ok'
-  return (
-    <div>
-      <div className="bar"><div className={`fill ${state}`} style={{ width: `${pct}%` }} /></div>
-      {label && <div className="muted small">{label}</div>}
-      {state === 'over' && <div className="small error">Over budget by {euro(spent - budget)}</div>}
-    </div>
   )
 }

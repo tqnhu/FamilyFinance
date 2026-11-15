@@ -5,6 +5,9 @@ import { isSeparateBill } from '../lib/expense'
 import { yearModel, type SummaryRow, type YearModel } from '../lib/year'
 import { CategoryBars, MonthlyChart } from '../components/charts'
 import TagsView from './TagsView'
+import CategoryDetail from './CategoryDetail'
+import { Navigate, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../auth'
 import { supabase } from '../lib/supabase'
 import { euro } from '../lib/money'
 import { review, type Review as R } from '../lib/review'
@@ -94,7 +97,7 @@ function MonthReview() {
   )
 }
 
-export default function Review() {
+function ReviewTabs() {
   const [tab, setTab] = useState<'month' | 'year' | 'tags'>('month')
   return (
     <>
@@ -155,4 +158,14 @@ function YearView() {
       <section className="card"><h2>Everyday spending by category</h2><CategoryBars categories={model.categories} /></section>
     </div>
   )
+}
+
+/** The Review page: month, year and tags for parents, or one category's expenses when opened from Home. */
+export default function Review() {
+  const [params] = useSearchParams()
+  const { member } = useAuth()
+  const category = params.get('category')
+  if (category) return <CategoryDetail categoryId={category} />
+  if (member?.role !== 'parent') return <Navigate to="/" replace /> // children only come here through a category on Home
+  return <ReviewTabs />
 }

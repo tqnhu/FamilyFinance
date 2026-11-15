@@ -322,3 +322,41 @@ describe('bulkMessage', () => {
     expect(bulkMessage(2, 1, null)).toContain('1 expense could not be changed')
   })
 })
+
+import { categoryExpenses, latest, monthKey, monthOffset, newestFirst, parseMonthKey, separateBillsIn, shiftMonth, sumCents } from './category'
+describe('month keys', () => {
+  it('formats and parses', () => {
+    expect(monthKey(new Date(2026, 10, 5))).toBe('2026-11'); expect(monthKey(new Date(2026, 0, 31))).toBe('2026-01')
+    expect(parseMonthKey('2026-11')?.getMonth()).toBe(10)
+  })
+  it('rejects things that are not months', () => {
+    for (const bad of ['2026-13', '2026-00', '26-11', '2026-1', 'november', '', null, undefined, '2026-11-01']) expect(parseMonthKey(bad as string)).toBeNull()
+  })
+  it('counts months back from now, and refuses the future or the far past', () => {
+    const now = new Date('2026-11-15T12:00:00')
+    expect(monthOffset('2026-11', now)).toBe(0); expect(monthOffset('2026-10', now)).toBe(-1); expect(monthOffset('2025-11', now)).toBe(-12)
+    expect(monthOffset('2026-12', now)).toBeNull(); expect(monthOffset('2020-01', now)).toBeNull(); expect(monthOffset('junk', now)).toBeNull()
+  })
+  it('shifts across year ends', () => { expect(shiftMonth('2026-01', -1)).toBe('2025-12'); expect(shiftMonth('2026-12', 1)).toBe('2027-01'); expect(shiftMonth('2026-05', -4)).toBe('2026-01') })
+})
+describe('category expenses', () => {
+  const e = (id: string, cat: string, spent_on: string, o: Record<string, unknown> = {}) => ({ id, category_id: cat, spent_on, amount_cents: 100, created_at: `${spent_on}T10:00:00Z`, bill_id: null, monthly_fee: false, ...o })
+  const all = [e('a', 'T', '2026-11-02'), e('b', 'T', '2026-11-10'), e('c', 'G', '2026-11-11'), e('d', 'T', '2026-11-10', { created_at: '2026-11-10T18:00:00Z' }),
+    e('fee', 'T', '2026-11-05', { bill_id: 'x', monthly_fee: true }), e('yr', 'T', '2026-11-06', { bill_id: 'y', amount_cents: 60000 }), e('e', 'T', '2026-11-08'), e('f', 'T', '2026-11-01')]
+  it('keeps the category, everyday spending and monthly fees, and drops yearly bills (the rule behind the Home number)', () => {
+    const ids = categoryExpenses(all, 'T').map(x => x.id)
+    expect(ids).toContain('fee')          // a monthly fee is everyday spending
+    expect(ids).not.toContain('yr')       // a yearly bill payment is not
+    expect(ids).not.toContain('c')        // another category is not
+  })
+  it('newest first, and same-day ones by when they were entered', () => {
+    expect(categoryExpenses(all, 'T').map(x => x.id)).toEqual(['d', 'b', 'e', 'fee', 'a', 'f'])
+  })
+  it('the three latest', () => expect(latest(categoryExpenses(all, 'T')).map(x => x.id)).toEqual(['d', 'b', 'e']))
+  it('fewer than three is fine, and none is empty', () => { expect(latest([all[2]]).length).toBe(1); expect(latest([])).toEqual([]) })
+  it('does not depend on the order it is given', () => expect(latest([...all].reverse().filter(x => x.category_id === 'T' && !x.bill_id)).map(x => x.id)).toEqual(['d', 'b', 'e']))
+  it('totals add up and match what Home counts', () => { expect(sumCents(categoryExpenses(all, 'T'))).toBe(600); expect(sumCents(categoryExpenses(all, 'G'))).toBe(100) })
+  it('finds the yearly bills kept apart', () => { expect(separateBillsIn(all, 'T').map(x => x.id)).toEqual(['yr']); expect(separateBillsIn(all, 'G')).toEqual([]) })
+  it('an unknown category has nothing', () => expect(categoryExpenses(all, 'nope')).toEqual([]))
+  it('ordering helper is stable for missing created_at', () => expect(newestFirst({ spent_on: '2026-01-02' }, { spent_on: '2026-01-01' })).toBeLessThan(0))
+})

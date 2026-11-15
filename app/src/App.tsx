@@ -28,7 +28,7 @@ function Shell() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/jars" element={<Jars />} />
           <Route path="/goals" element={<Goals />} />
-          {member.role === 'parent' && <Route path="/review" element={<Review />} />}
+          <Route path="/review" element={<Review />} />
           {member.role === 'parent' && <Route path="/plan" element={<Plan />} />}
           <Route path="/budgets" element={<Navigate to="/plan" replace />} />
         </Routes>
