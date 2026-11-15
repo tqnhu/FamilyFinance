@@ -7,6 +7,8 @@ import {
   type DateOrder, type Mapping, type Table,
 } from '../lib/csv'
 import type { Category } from '../lib/types'
+import { useTags } from '../lib/tags'
+import TagPicker from '../components/TagPicker'
 
 type Edit = { selected?: boolean; cat?: string | null }
 type Past = { batch: string; count: number; total: number; first: string; last: string; created: string }
@@ -27,6 +29,8 @@ export default function ImportTab() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<{ count: number; batch: string } | null>(null)
   const [past, setPast] = useState<Past[]>([])
+  const [tag, setTag] = useState('')
+  const { tags, create: createTag } = useTags()
   const input = useRef<HTMLInputElement>(null)
 
   const activeCats = useMemo(() => cats.filter(c => !c.archived), [cats])
@@ -98,7 +102,7 @@ export default function ImportTab() {
     for (let i = 0; i < chosen.length; i += CHUNK) {
       const part = chosen.slice(i, i + CHUNK).map(r => ({
         family_id: member.family_id, member_id: member.user_id, category_id: r.cat, amount_cents: r.cents,
-        note: r.note, spent_on: r.date, import_batch: batch,
+        note: r.note, spent_on: r.date, import_batch: batch, tag_id: tag || null,
       }))
       const { error } = await supabase.from('expenses').insert(part)
       if (error) {
@@ -201,6 +205,7 @@ export default function ImportTab() {
               </div>
             ))}
           </div>
+          <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} label="Tag all these expenses (optional), e.g. a holiday statement" />
           {missing > 0 && <p className="error">{missing} selected {missing === 1 ? 'expense needs' : 'expenses need'} a category.</p>}
           <button className="primary" disabled={busy || !chosen.length || missing > 0} onClick={doImport}>
             {busy ? 'Importing…' : `Import ${chosen.length} ${chosen.length === 1 ? 'expense' : 'expenses'} (${euro(total)})`}

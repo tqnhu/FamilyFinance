@@ -7,6 +7,7 @@ import { isSeparateBill } from '../lib/expense'
 import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
 import DueSoon from '../components/DueSoon'
+import { useTags } from '../lib/tags'
 
 export default function Dashboard() {
   const { member } = useAuth()
@@ -16,6 +17,7 @@ export default function Dashboard() {
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const { tags } = useTags()
   const [offset, setOffset] = useState(0) // 0 = this month, -1 = last month, ... (so older mistakes can be fixed too)
   const isParent = member?.role === 'parent'
   const viewed = new Date(new Date().getFullYear(), new Date().getMonth() + offset, 1)
@@ -42,6 +44,7 @@ export default function Dashboard() {
   const now = new Date()
   const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
   const catOf = (id: string | null) => cats.find(c => c.id === id)
+  const tagName = (id: string | null | undefined) => (id ? tags.find(t => t.id === id)?.name : undefined)
   const nameOf = (id: string) => people.find(p => p.user_id === id)?.display_name ?? '?'
 
   const canEdit = (x: Expense) => isParent || x.member_id === member?.user_id
@@ -93,7 +96,7 @@ export default function Dashboard() {
               onClick={open} onKeyDown={e => { if (open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open() } }}>
               <div>
                 <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}{x.receipt_path && <span title="Has a receipt photo" aria-hidden> 📎</span>}</div>
-                <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}{x.bill_id && <span className="tag">monthly bill</span>}</div>
+                <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}{x.bill_id && <span className="tag">monthly bill</span>}{tagName(x.tag_id) && <span className="tag tagname">#{tagName(x.tag_id)}</span>}</div>
               </div>
               <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && <span className="muted small"> ✎</span>}</div>
             </div>

@@ -7,6 +7,8 @@ import { FREQ, MONTHS, dueList, isMonthlyBill, monthlySetAside, useBills, yearly
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
 import ImportTab from './ImportTab'
+import TagPicker from '../components/TagPicker'
+import { useTags } from '../lib/tags'
 
 type Tab = 'budgets' | 'bills' | 'import' | 'family'
 
@@ -219,6 +221,8 @@ function BillSheet({ bill, cats, familyId, onClose, onDone }: { bill: Bill | nul
   const [times, setTimes] = useState<number>(bill?.times_per_year ?? 1)
   const [month, setMonth] = useState(bill?.due_month ?? new Date().getMonth() + 1)
   const [day, setDay] = useState(String(bill?.due_day ?? 1))
+  const [tag, setTag] = useState<string>(bill?.tag_id ?? '')
+  const { tags, create: createTag } = useTags()
   const [err, setErr] = useState('')
 
   async function save(e: FormEvent) {
@@ -227,7 +231,7 @@ function BillSheet({ bill, cats, familyId, onClose, onDone }: { bill: Bill | nul
     if (!name.trim()) return setErr('Give the bill a name.')
     if (!cents) return setErr('Enter the amount of one payment.')
     if (!Number.isInteger(d) || d < 1 || d > 31) return setErr('Day must be between 1 and 31.')
-    const row = { name: name.trim(), category_id: cat || null, amount_cents: cents, times_per_year: times, due_month: month, due_day: d }
+    const row = { name: name.trim(), category_id: cat || null, amount_cents: cents, times_per_year: times, due_month: month, due_day: d, tag_id: tag || null }
     const { error } = bill ? await supabase.from('bills').update(row).eq('id', bill.id) : await supabase.from('bills').insert({ ...row, family_id: familyId })
     if (error) setErr(error.message); else onDone()
   }
@@ -242,6 +246,7 @@ function BillSheet({ bill, cats, familyId, onClose, onDone }: { bill: Bill | nul
           <label style={{ flex: 1 }}>Day<input inputMode="numeric" value={day} onChange={e => setDay(e.target.value.replace(/\D/g, ''))} /></label>
         </div>
         <label>Category<select value={cat} onChange={e => setCat(e.target.value)}><option value="">None</option>{cats.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}</select></label>
+        <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} label="Tag for its payments (optional)" />
         {err && <p className="error">{err}</p>}
         <button className="primary">Save</button>
       </form>

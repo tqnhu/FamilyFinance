@@ -6,6 +6,8 @@ import type { Category, Expense } from '../lib/types'
 import { changes } from '../lib/expense'
 import { compressToJpeg } from '../lib/image'
 import { receiptUrl, removeReceipt, uploadReceipt } from '../lib/receipts'
+import { useTags } from '../lib/tags'
+import TagPicker from '../components/TagPicker'
 
 type Props = {
   cats: Category[]
@@ -28,6 +30,8 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
   const [cat, setCat] = useState<string>(expense?.category_id ?? '')
   const [note, setNote] = useState(expense?.note ?? '')
   const [date, setDate] = useState(expense?.spent_on ?? defaultDate ?? today())
+  const [tag, setTag] = useState<string>(expense?.tag_id ?? '')
+  const { tags, create: createTag } = useTags()
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -59,7 +63,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     setBusy(true); setErr('')
 
     if (expense) {
-      const patch: Record<string, unknown> = { ...changes(expense, { cents, cat, note: note.trim(), date }) }
+      const patch: Record<string, unknown> = { ...changes(expense, { cents, cat, note: note.trim(), date, tag }) }
       let newPath: string | null = null
       try {
         if (photo) { newPath = await uploadReceipt(expense.family_id ?? member!.family_id, expense.id, photo.blob); patch.receipt_path = newPath }
@@ -81,7 +85,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     const id = crypto.randomUUID()
     const { error } = await supabase.from('expenses').insert({
       id, family_id: member!.family_id, member_id: member!.user_id,
-      category_id: cat, amount_cents: cents, note: note.trim(), spent_on: date,
+      category_id: cat, amount_cents: cents, note: note.trim(), spent_on: date, tag_id: tag || null,
     })
     if (error) { setBusy(false); return setErr(error.message) }
     let photoProblem = ''
@@ -124,6 +128,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
         </div>
         <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
+        <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} />
 
         <div className="receipt">
           {shownUrl && <a href={shownUrl} target="_blank" rel="noreferrer" title="Open the photo"><img src={shownUrl} alt="Receipt" /></a>}

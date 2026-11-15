@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 
 export type Bill = {
   id: string; name: string; category_id: string | null; amount_cents: number
-  times_per_year: 1 | 2 | 4 | 12; due_month: number; due_day: number; archived: boolean; created_at: string
+  times_per_year: 1 | 2 | 4 | 12; due_month: number; due_day: number; archived: boolean; created_at: string; tag_id?: string | null
 }
 export type Payment = { id: string; bill_id: string; due_on: string; expense_id: string; expenses: { amount_cents: number; spent_on: string } | null }
 

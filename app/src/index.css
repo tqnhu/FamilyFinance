@@ -96,3 +96,5 @@ a { color:var(--brand) }
 .imp-side { display:flex; flex-direction:column; align-items:flex-end; gap:4px } .imp-side select { width:auto; max-width:150px; padding:6px; font-size:.85rem }
 [hidden] { display:none !important }
 .narrow h2 { margin-top:22px }
+.tagpicker { margin:10px 0 } .tagpicker .chip { font-size:.9rem; padding:8px 12px } .tag.tagname { color:var(--brand); border-color:var(--brand) }
+.bar-row.wide { grid-template-columns:96px 1fr 92px } .bar-row[role=button] { cursor:pointer }

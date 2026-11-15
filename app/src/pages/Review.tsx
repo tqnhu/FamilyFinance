@@ -4,6 +4,7 @@ import { MONTHS } from '../lib/bills'
 import { isSeparateBill } from '../lib/expense'
 import { yearModel, type SummaryRow, type YearModel } from '../lib/year'
 import { CategoryBars, MonthlyChart } from '../components/charts'
+import TagsView from './TagsView'
 import { supabase } from '../lib/supabase'
 import { euro } from '../lib/money'
 import { review, type Review as R } from '../lib/review'
@@ -94,14 +95,15 @@ function MonthReview() {
 }
 
 export default function Review() {
-  const [tab, setTab] = useState<'month' | 'year'>('month')
+  const [tab, setTab] = useState<'month' | 'year' | 'tags'>('month')
   return (
     <>
       <div className="seg" role="tablist">
         <button role="tab" aria-selected={tab === 'month'} className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>This month</button>
         <button role="tab" aria-selected={tab === 'year'} className={tab === 'year' ? 'on' : ''} onClick={() => setTab('year')}>Year</button>
+        <button role="tab" aria-selected={tab === 'tags'} className={tab === 'tags' ? 'on' : ''} onClick={() => setTab('tags')}>Tags</button>
       </div>
-      {tab === 'month' ? <MonthReview /> : <YearView />}
+      {tab === 'month' ? <MonthReview /> : tab === 'year' ? <YearView /> : <TagsView />}
     </>
   )
 }

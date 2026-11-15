@@ -231,3 +231,62 @@ describe('joinMessage', () => {
     for (const odd of [null, undefined, '', 'PARENT', 42, {}]) expect(joinMessage(odd)).toBeTruthy()
   })
 })
+
+import { canStep, monthLines, periodLabel, periodNow, periodRange, stepPeriod, tagLines } from './tags'
+describe('tag periods', () => {
+  const p = (kind: 'month' | 'year' | 'all', year = 2026, month = 10) => ({ kind, year, month })
+  it('month, year and all-time ranges, end date exclusive', () => {
+    expect(periodRange(p('month'))).toEqual({ from: '2026-11-01', to: '2026-12-01' })
+    expect(periodRange(p('month', 2026, 11))).toEqual({ from: '2026-12-01', to: '2027-01-01' }) // December rolls into January
+    expect(periodRange(p('month', 2026, 0))).toEqual({ from: '2026-01-01', to: '2026-02-01' })
+    expect(periodRange(p('year'))).toEqual({ from: '2026-01-01', to: '2027-01-01' })
+    expect(periodRange(p('all'))).toEqual({ from: null, to: null })
+  })
+  it('labels', () => {
+    expect(periodLabel(p('month'))).toBe('November 2026'); expect(periodLabel(p('year'))).toBe('2026'); expect(periodLabel(p('all'))).toBe('All time')
+  })
+  it('steps across year ends', () => {
+    expect(stepPeriod(p('month', 2026, 0), -1)).toMatchObject({ year: 2025, month: 11 })
+    expect(stepPeriod(p('month', 2026, 11), 1)).toMatchObject({ year: 2027, month: 0 })
+    expect(stepPeriod(p('year'), -1).year).toBe(2025); expect(stepPeriod(p('all'), 1)).toEqual(p('all'))
+  })
+  it('never steps into the future', () => {
+    const now = new Date('2026-11-15T12:00:00')
+    expect(canStep(periodNow('month', now), 1, now)).toBe(false); expect(canStep(periodNow('month', now), -1, now)).toBe(true)
+    expect(canStep(periodNow('year', now), 1, now)).toBe(false); expect(canStep(p('month', 2026, 9), 1, now)).toBe(true)
+    expect(canStep(p('all'), -1, now)).toBe(false)
+  })
+})
+describe('tag totals', () => {
+  const tags = [{ id: 'a', name: 'Vietnam', archived: false }, { id: 'b', name: 'Kitchen', archived: true }, { id: 'c', name: 'Unused', archived: false }]
+  it('ranks tags, keeps "no tag" apart, and adds up', () => {
+    const r = tagLines([{ tag_id: 'a', total_cents: 5000, n: 3 }, { tag_id: null, total_cents: 900, n: 2 }, { tag_id: 'b', total_cents: 12000, n: 1 }], tags)
+    expect(r.lines.map(l => [l.name, l.total, l.n])).toEqual([['Kitchen', 12000, 1], ['Vietnam', 5000, 3]])
+    expect(r.untagged).toEqual({ total: 900, n: 2 }); expect(r.tagged).toBe(17000); expect(r.all).toBe(17900)
+  })
+  it('ignores unknown tags and empty periods', () => {
+    expect(tagLines([{ tag_id: 'zzz', total_cents: 100, n: 1 }], tags).lines).toEqual([])
+    expect(tagLines([], tags)).toMatchObject({ lines: [], tagged: 0, all: 0, untagged: { total: 0, n: 0 } })
+  })
+  it('breaks ties by name so the order is stable', () => {
+    expect(tagLines([{ tag_id: 'c', total_cents: 5, n: 1 }, { tag_id: 'a', total_cents: 5, n: 1 }], tags).lines.map(l => l.name)).toEqual(['Unused', 'Vietnam'])
+  })
+  it('month rows are oldest first with readable labels', () => {
+    const m = monthLines([{ month: '2026-04-01', total_cents: 4000, n: 1 }, { month: '2025-12-01', total_cents: 1000, n: 1 }])
+    expect(m.map(x => x.label)).toEqual(['Dec 2025', 'Apr 2026']); expect(m[1].total).toBe(4000)
+  })
+})
+describe('expense changes with a tag', () => {
+  const old = { id: 'x', member_id: 'm', category_id: 'a', amount_cents: 100, note: '', spent_on: '2026-01-01', tag_id: 't1' }
+  const same = { cents: 100, cat: 'a', note: '', date: '2026-01-01' }
+  it('sends the tag only when it changed', () => {
+    expect(changes(old, { ...same, tag: 't1' })).toEqual({})
+    expect(changes(old, { ...same, tag: 't2' })).toEqual({ tag_id: 't2' })
+  })
+  it('an empty choice removes the tag (null), and an untagged expense stays untagged', () => {
+    expect(changes(old, { ...same, tag: '' })).toEqual({ tag_id: null })
+    expect(changes({ ...old, tag_id: null }, { ...same, tag: '' })).toEqual({})
+    expect(changes({ ...old, tag_id: undefined }, { ...same, tag: '' })).toEqual({})
+  })
+  it('callers that do not know about tags leave them alone', () => expect(changes(old, same)).toEqual({}))
+})
