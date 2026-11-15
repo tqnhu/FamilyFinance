@@ -106,3 +106,26 @@ select t.su(); update bills set tag_id = null where id = :'tb'::uuid;
 select t.ok((select tag_id from expenses where id = :'te'::uuid) = :'vn'::uuid, 'changing the bill''s tag later does not rewrite past payments');
 select t.as_user(:C1);
 select t.ok((select count(*) from expenses where bill_id is not null) = 0, 'a child still cannot see bill payments');
+
+-- bulk tagging: one statement over many ids changes only what the person may edit
+select t.su();
+insert into expenses (id, family_id, member_id, amount_cents, note, spent_on) values
+  ('66666666-0000-0000-0000-000000000001', :'fam'::uuid, :C1, 100, 'kid a', '2026-05-01'),
+  ('66666666-0000-0000-0000-000000000002', :'fam'::uuid, :C1, 200, 'kid b', '2026-05-02'),
+  ('66666666-0000-0000-0000-000000000003', :'fam'::uuid, :C2, 300, 'sibling', '2026-05-03'),
+  ('66666666-0000-0000-0000-000000000004', :'fam'::uuid, :P,  400, 'parent', '2026-05-04');
+select t.as_user(:C1);
+with u as (update expenses set tag_id = :'school'::uuid where id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002', '66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004', :'te'::uuid) returning id) select t.ok((select count(*) from u) = 2, 'a child''s bulk update changes only their own two expenses');
+select t.su();
+select t.ok((select count(*) from expenses where tag_id = :'school'::uuid and id::text like '66666666%') = 2, 'the sibling''s and the parent''s expenses were not touched');
+select t.ok((select tag_id from expenses where id = :'te'::uuid) = :'vn'::uuid, 'and neither was the bill payment');
+select t.as_user(:P);
+with u as (update expenses set tag_id = :'vn'::uuid where id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002', '66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004', :'te'::uuid) returning id) select t.ok((select count(*) from u) = 4, 'a parent''s bulk update changes the four ordinary expenses but skips the bill payment');
+select t.ok((select count(*) from expenses where tag_id = :'vn'::uuid and id::text like '66666666%') = 4, 'all four now carry the tag');
+with u as (update expenses set tag_id = null where id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002') returning id) select t.ok((select count(*) from u) = 2, 'a bulk update can also remove tags');
+select t.ok((select edited_at from expenses where id = '66666666-0000-0000-0000-000000000001') is null, 'bulk tagging does not mark expenses as edited');
+select t.as_user(:Q);
+with u as (update expenses set tag_id = null where id in ('66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004') returning id) select t.ok((select count(*) from u) = 0, 'another family''s bulk update changes nothing');
+select t.as_user(:P);
+select t.fails(format($q$update expenses set tag_id = %L::uuid where id in ('66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004')$q$, :'qtag'), 'a bulk update cannot attach another family''s tag');
+select t.ok((select count(*) from expenses where id::text like '66666666%' and tag_id = :'qtag'::uuid) = 0, 'and nothing was partly changed');

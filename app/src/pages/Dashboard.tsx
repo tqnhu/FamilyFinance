@@ -7,7 +7,7 @@ import { isSeparateBill } from '../lib/expense'
 import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
 import DueSoon from '../components/DueSoon'
-import { useTags } from '../lib/tags'
+import ExpenseList from '../components/ExpenseList'
 
 export default function Dashboard() {
   const { member } = useAuth()
@@ -16,8 +16,6 @@ export default function Dashboard() {
   const [people, setPeople] = useState<Member[]>([])
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Expense | null>(null)
-  const [showAll, setShowAll] = useState(false)
-  const { tags } = useTags()
   const [offset, setOffset] = useState(0) // 0 = this month, -1 = last month, ... (so older mistakes can be fixed too)
   const isParent = member?.role === 'parent'
   const viewed = new Date(new Date().getFullYear(), new Date().getMonth() + offset, 1)
@@ -43,8 +41,6 @@ export default function Dashboard() {
   const spentBy = (id: string | null) => everyday.filter(x => x.category_id === id).reduce((s, x) => s + x.amount_cents, 0)
   const now = new Date()
   const daysLeft = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate()
-  const catOf = (id: string | null) => cats.find(c => c.id === id)
-  const tagName = (id: string | null | undefined) => (id ? tags.find(t => t.id === id)?.name : undefined)
   const nameOf = (id: string) => people.find(p => p.user_id === id)?.display_name ?? '?'
 
   const canEdit = (x: Expense) => isParent || x.member_id === member?.user_id
@@ -56,9 +52,9 @@ export default function Dashboard() {
   return (
     <>
       <div className="stepper">
-        <button aria-label="Previous month" onClick={() => { setOffset(offset - 1); setShowAll(false) }} disabled={offset <= -24}>‹</button>
+        <button aria-label="Previous month" onClick={() => setOffset(offset - 1)} disabled={offset <= -24}>‹</button>
         <strong>{isCurrent ? 'This month' : monthLabel}</strong>
-        <button aria-label="Next month" onClick={() => { setOffset(offset + 1); setShowAll(false) }} disabled={isCurrent}>›</button>
+        <button aria-label="Next month" onClick={() => setOffset(offset + 1)} disabled={isCurrent}>›</button>
       </div>
 
       <section className="card">
@@ -85,25 +81,8 @@ export default function Dashboard() {
         {!everyday.length && <p className="muted">No expenses {isCurrent ? 'yet this month' : 'in this month'}.</p>}
       </section>
 
-      <section className="card">
-        <h2>{isCurrent ? 'Recent' : 'Expenses'}</h2>
-        {everyday.length > 0 && <p className="muted small">Tap an expense to fix a mistake.</p>}
-        {(showAll ? everyday : everyday.slice(0, 30)).map(x => {
-          const open = canEdit(x) && !x.bill_id ? () => setEditing(x) : undefined // bill payments are changed on the Plan page
-          return (
-            <div key={x.id} className={`row item ${open ? 'tappable' : ''}`} role={open ? 'button' : undefined} tabIndex={open ? 0 : undefined}
-              aria-label={open ? `Edit ${x.note || catOf(x.category_id)?.name || 'expense'}, ${euro(x.amount_cents)}${x.receipt_path ? ', has a receipt photo' : ''}` : undefined}
-              onClick={open} onKeyDown={e => { if (open && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); open() } }}>
-              <div>
-                <div>{catOf(x.category_id)?.emoji ?? '📦'} {x.note || catOf(x.category_id)?.name || 'Expense'}{x.receipt_path && <span title="Has a receipt photo" aria-hidden> 📎</span>}</div>
-                <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}{x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}{x.bill_id && <span className="tag">monthly bill</span>}{tagName(x.tag_id) && <span className="tag tagname">#{tagName(x.tag_id)}</span>}</div>
-              </div>
-              <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && <span className="muted small"> ✎</span>}</div>
-            </div>
-          )
-        })}
-        {!showAll && everyday.length > 30 && <button className="link" onClick={() => setShowAll(true)}>Show all {everyday.length}</button>}
-      </section>
+      <ExpenseList expenses={expenses} cats={cats} title={isCurrent ? 'Recent' : 'Expenses'} nameOf={nameOf} canEdit={canEdit}
+        onEdit={setEditing} onChanged={() => void load()} />
 
       <button className="fab" aria-label="Add expense" onClick={() => setAdding(true)}>+</button>
       {adding && <AddExpense cats={cats.filter(c => !c.archived)} defaultDate={isCurrent ? undefined : lastDayOfViewed} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}

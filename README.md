@@ -7,7 +7,7 @@ Shared family expense and savings tracker (PWA) for parents and kids.
 - **Phase 2:** kids' Spend/Save/Give jars, weekly allowance, purchase requests with parent approval, optional parent match on savings.
 - **Phase 3:** shared family savings goals with a time-to-goal estimate and "what if" slider, kids' badges and saving streaks, and a monthly family review for parents.
 - **Phase 4:** budget management (add, rename, archive categories), a yearly bills tracker (car/home insurance and similar: due dates, mark paid, monthly set-aside, reminders; bills charged monthly count as normal spending in the month they are paid), and a yearly spending overview with charts.
-- **Tags:** put one tag ("Vietnam trip", "Kitchen") on any expense, or a default tag on a bill, or on a whole CSV import. Review → Tags adds up each tag by month, year or all time, with its expenses and a monthly breakdown.
+- **Tags:** put one tag ("Vietnam trip", "Kitchen") on any expense, or a default tag on a bill, or on a whole CSV import. Review → Tags adds up each tag by month, year or all time, with its expenses and a monthly breakdown. On Home, filter the list by tag (or "Without a tag"), and use Select to tag or untag many expenses at once.
 - **Joining a family:** invite codes are forgiving (any capitalisation, spaces, dashes, a letter O typed for a zero), and someone who started an empty family by mistake can still join the real one.
 - **Editing expenses:** tap any expense to fix the amount, category, note or date, or delete it. Kids can fix their own, parents any. Changes are marked "edited by", and older months can be browsed and corrected.
 - **Receipt photos:** attach a photo to any expense (camera or gallery). It is shrunk on the phone and kept in a private bucket that follows the expense's permissions.
@@ -18,4 +18,4 @@ Shared family expense and savings tracker (PWA) for parents and kids.
    Upgrading an existing project? Run the files in `supabase/migrations/` you haven't applied yet, in order.
 2. `cd app && cp .env.example .env` and fill in the project URL and anon key.
 3. `npm install && npm run dev`
-4. `npm test` runs the unit tests; database tests are in `supabase/tests/`.
+4. `npm test` runs the unit tests; database tests are in `supabase/tests/`; browser tests are in `app/e2e/`.

@@ -290,3 +290,35 @@ describe('expense changes with a tag', () => {
   })
   it('callers that do not know about tags leave them alone', () => expect(changes(old, same)).toEqual({}))
 })
+
+import { NO_TAG, bulkMessage, chunk, usedTagIds, visibleExpenses } from './expense'
+describe('Home list filter', () => {
+  const list = [
+    { id: 1, bill_id: null, monthly_fee: false, tag_id: 'a' }, { id: 2, bill_id: null, monthly_fee: false, tag_id: null },
+    { id: 3, bill_id: 'b', monthly_fee: true, tag_id: null }, // a monthly fee: everyday spending
+    { id: 4, bill_id: 'b', monthly_fee: false, tag_id: 'a' }, // a yearly bill payment
+    { id: 5, bill_id: 'b', monthly_fee: false, tag_id: null }, // a yearly bill payment without a tag
+  ]
+  it('no filter: everyday spending, as before', () => expect(visibleExpenses(list, '').map(x => x.id)).toEqual([1, 2, 3]))
+  it('a tag: everything with it, bill payments included (matches the tag total)', () => expect(visibleExpenses(list, 'a').map(x => x.id)).toEqual([1, 4]))
+  it('"no tag": untagged everyday spending, which is what is left to tag', () => expect(visibleExpenses(list, NO_TAG).map(x => x.id)).toEqual([2, 3]))
+  it('a tag nobody uses shows nothing', () => expect(visibleExpenses(list, 'zzz')).toEqual([]))
+  it('lists the tags that are in use', () => expect([...usedTagIds(list)]).toEqual(['a']))
+})
+describe('chunk', () => {
+  it('splits into pieces of at most the size, keeping order', () => {
+    expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]); expect(chunk([], 3)).toEqual([]); expect(chunk([1, 2], 5)).toEqual([[1, 2]])
+  })
+  it('250 ids become 3 requests of at most 100', () => expect(chunk(Array.from({ length: 250 }, (_, i) => i), 100).map(c => c.length)).toEqual([100, 100, 50]))
+  it('refuses a size that would loop forever', () => expect(() => chunk([1], 0)).toThrow())
+})
+describe('bulkMessage', () => {
+  it('says what happened', () => {
+    expect(bulkMessage(3, 3, 'Holiday')).toBe('Tagged 3 expenses with #Holiday.'); expect(bulkMessage(1, 1, 'Holiday')).toBe('Tagged 1 expense with #Holiday.')
+    expect(bulkMessage(2, 2, null)).toBe('Removed the tag from 2 expenses.')
+  })
+  it('reports expenses that could not be changed', () => {
+    const m = bulkMessage(5, 3, 'Kitchen'); expect(m).toContain('Tagged 3 expenses'); expect(m).toContain('2 expenses could not be changed')
+    expect(bulkMessage(2, 1, null)).toContain('1 expense could not be changed')
+  })
+})

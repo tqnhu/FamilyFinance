@@ -98,3 +98,16 @@ a { color:var(--brand) }
 .narrow h2 { margin-top:22px }
 .tagpicker { margin:10px 0 } .tagpicker .chip { font-size:.9rem; padding:8px 12px } .tag.tagname { color:var(--brand); border-color:var(--brand) }
 .bar-row.wide { grid-template-columns:96px 1fr 92px } .bar-row[role=button] { cursor:pointer }
+.listbar { display:flex; gap:10px; align-items:flex-end; margin:6px 0 }
+.listbar-filter { flex:1; margin:0; font-size:.8rem } .listbar-filter select { margin-top:2px }
+.listbar > button { flex:0 0 auto; padding:12px 18px }
+.status { background:var(--bg); border-radius:10px; padding:8px 12px; font-size:.9rem; margin:6px 0 }
+.grow { flex:1; min-width:0 } .pick { font-size:1.4rem; width:28px; flex:0 0 28px; color:var(--brand) }
+.row.picked { background:color-mix(in srgb, var(--brand) 10%, transparent); border-radius:8px }
+.actionbar { position:fixed; left:0; right:0; bottom:66px; z-index:6; display:flex; gap:10px; align-items:center; justify-content:flex-end; background:var(--card); border-top:1px solid var(--line); box-shadow:0 -4px 14px #0002; padding:10px 16px }
+.actionbar span { margin-right:auto }
+body:has(.actionbar) .fab { display:none }
+/* buttons inside flex rows must not inherit the full-width style of .primary */
+.listbar > button, .actionbar > button { width:auto; margin:0; flex:0 0 auto }
+.listbar-filter { min-width:0 } .listbar-filter select { width:100% }
+.actionbar span { white-space:nowrap }
