@@ -360,3 +360,44 @@ describe('category expenses', () => {
   it('an unknown category has nothing', () => expect(categoryExpenses(all, 'nope')).toEqual([]))
   it('ordering helper is stable for missing created_at', () => expect(newestFirst({ spent_on: '2026-01-02' }, { spent_on: '2026-01-01' })).toBeLessThan(0))
 })
+
+import { FAMILY_NAME_MAX, NAME_MAX, RESET_SENT, inviteText, isRateLimit, nameProblem, passwordProblem, saveNameMessage, usernameMessage } from './profile'
+describe('passwordProblem', () => {
+  it('accepts a good password', () => expect(passwordProblem('correct horse', 'correct horse')).toBeNull())
+  it('wants at least 8 characters', () => { expect(passwordProblem('short', 'short')).toContain('8'); expect(passwordProblem('1234567', '1234567')).not.toBeNull(); expect(passwordProblem('12345678', '12345678')).toBeNull() })
+  it('refuses a password of only spaces', () => expect(passwordProblem('        ', '        ')).toContain('spaces'))
+  it('wants both boxes to match', () => expect(passwordProblem('longenough1', 'longenough2')).toContain('do not match'))
+  it('checks length before matching, so the first problem is the clearest', () => expect(passwordProblem('abc', 'xyz')).toContain('8'))
+})
+describe('nameProblem', () => {
+  it('accepts sensible names, with spaces and accents', () => { expect(nameProblem('Mia')).toBeNull(); expect(nameProblem('  Nguyễn Thị Hà ')).toBeNull() })
+  it('refuses empty and blank', () => { expect(nameProblem('')).toContain('type'); expect(nameProblem('   ')).toContain('type') })
+  it('has a limit, measured after trimming', () => {
+    expect(nameProblem('x'.repeat(NAME_MAX))).toBeNull(); expect(nameProblem('x'.repeat(NAME_MAX + 1))).toContain(String(NAME_MAX))
+    expect(nameProblem(' ' + 'x'.repeat(NAME_MAX) + ' ')).toBeNull()
+    expect(nameProblem('y'.repeat(FAMILY_NAME_MAX + 1), FAMILY_NAME_MAX, 'family name')).toContain('family name')
+  })
+})
+describe('usernameMessage and saveNameMessage', () => {
+  it('turns answers into plain words and never shows a code word', () => {
+    expect(usernameMessage('ok')).toBeNull()
+    for (const a of ['invalid', 'taken', 'weird', null, undefined]) { const m = usernameMessage(a); expect(m).toBeTruthy(); expect(m).not.toMatch(/^(invalid|taken)$/) }
+    expect(saveNameMessage('ok')).toBeNull(); expect(saveNameMessage('invalid', 'family name')).toContain('family name'); expect(saveNameMessage(undefined)).toBeTruthy()
+  })
+})
+describe('isRateLimit', () => {
+  it('recognises a too-many-requests answer however it is worded', () => {
+    expect(isRateLimit({ status: 429 })).toBe(true)
+    expect(isRateLimit({ message: 'For security purposes, you can only request this after 59 seconds.' })).toBe(true)
+    expect(isRateLimit({ message: 'Email rate limit exceeded' })).toBe(true)
+  })
+  it('does not mistake other errors for it', () => { expect(isRateLimit({ status: 500, message: 'boom' })).toBe(false); expect(isRateLimit(null)).toBe(false); expect(isRateLimit(undefined)).toBe(false) })
+})
+describe('reset wording and invitations', () => {
+  it('the reset message never says whether the account exists', () => { expect(RESET_SENT).toMatch(/^If an account exists/); expect(RESET_SENT).not.toMatch(/not found|no account|unknown/i) })
+  it('an invitation has the link, the steps and the right kind of code', () => {
+    const t = inviteText({ familyName: 'The Smiths', who: 'kid', code: 'abc123def456', url: 'https://app.example' })
+    expect(t).toContain('The Smiths'); expect(t).toContain('https://app.example'); expect(t).toContain('kid code: abc123def456'); expect(t).toContain('Join your family')
+    expect(inviteText({ familyName: 'F', who: 'parent', code: 'c', url: 'u' })).toContain('parent code: c')
+  })
+})

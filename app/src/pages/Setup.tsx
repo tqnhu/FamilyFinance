@@ -52,7 +52,7 @@ export default function Setup() {
       <label>Your name<input ref={nameInput} value={name} autoComplete="given-name" onChange={e => setName(e.target.value)} /></label>
 
       <h2>Join your family</h2>
-      <p className="muted small">A parent shares an invite code with you (they find it under Plan → Family).</p>
+      <p className="muted small">A parent shares an invite code with you (they find it in Settings → Family, from the menu on their name).</p>
       <form onSubmit={join}>
         <label>Invite code
           <input value={code} onChange={e => setCode(e.target.value)} placeholder="12 letters and numbers"

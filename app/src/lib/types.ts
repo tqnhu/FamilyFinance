@@ -1,4 +1,4 @@
-export type Member = { user_id: string; family_id: string; display_name: string; role: 'parent' | 'child'; username: string | null }
+export type Member = { user_id: string; family_id: string; display_name: string; role: 'parent' | 'child'; username: string | null; created_at?: string }
 export type Category = { id: string; name: string; emoji: string; budget_cents: number; archived?: boolean }
 export type Expense = {
   id: string; family_id?: string; created_at?: string; member_id: string; category_id: string | null

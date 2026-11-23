@@ -57,7 +57,8 @@ that exists today, and how we will know it worked.
   2. Confirm the email (a message arrives, the person taps the link, then signs in).
   3. Setup: **Parent A** creates the family. **Everyone else** types their name and the invite code.
   4. Choose a username (so they can sign in without typing an email).
-  5. Parent A opens Plan → Family to copy the **parent code** and **kid code**.
+  5. Parent A opens the menu on their name → Family settings to copy the **parent code** and **kid code**, or a ready-made invitation message.
+  6. If a password is forgotten later: Login → "Forgot your password?", then the link in the email.
 * **Feeling.** Hopeful, then impatient at the email step. Anxious about the code ("did I type it right?").
 * **Friction today.**
   * Email confirmation breaks the flow, and the built-in email sender is slow and rate-limited. A confirmation that never arrives ends the journey.
@@ -241,7 +242,7 @@ journey
 |---|---|---|---|
 | 1 | **Reminders and notifications** (email first): a child's request is waiting, a bill is due, a gentle nudge when nothing was logged for several days | 2, 4 | Not built |
 | 2 | **First-run checklist** on an empty Home: add an expense, set budgets, invite your partner, set an allowance | 1, 2, 3 | Not built |
-| 3 | **One-tap invite sharing**: copies the code with a short message for chat apps | 0, 1 | Codes are shown only |
+| 3 | **One-tap invite sharing**: copies the code with a short message for chat apps | 0, 1 | **Built** (Settings → Family → Copy invitation) |
 | 4 | **Parent-assisted kid sign-up**: a guided way to create a child's account on their device | 1 | Needs the child's own email |
 | 5 | **Monthly summary** sent to the family and a "family meeting" layout for a shared screen | 5 | Review page only |
 | 6 | **Automatic monthly fees** recorded on their due day | 3, 4 | Recorded when a parent taps Mark paid |

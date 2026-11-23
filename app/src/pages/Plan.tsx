@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro, euroWhole, parseEuro, today } from '../lib/money'
@@ -10,23 +10,23 @@ import ImportTab from './ImportTab'
 import TagPicker from '../components/TagPicker'
 import { useTags } from '../lib/tags'
 
-type Tab = 'budgets' | 'bills' | 'import' | 'family'
+type Tab = 'budgets' | 'bills' | 'import'
 
 export default function Plan() {
   const [params, setParams] = useSearchParams()
+  if (params.get('tab') === 'family') return <Navigate to="/settings?tab=family" replace /> // invite codes moved to Settings
   const tab = (params.get('tab') as Tab) || 'budgets'
   const go = (t: Tab) => setParams(t === 'budgets' ? {} : { tab: t })
   return (
     <>
       <div className="seg" role="tablist">
-        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import'], ['family', 'Family']] as const).map(([id, label]) => (
+        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import']] as const).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go(id)}>{label}</button>
         ))}
       </div>
       {tab === 'budgets' && <BudgetsTab />}
       {tab === 'bills' && <BillsTab />}
       {tab === 'import' && <ImportTab />}
-      {tab === 'family' && <FamilyTab />}
     </>
   )
 }
@@ -275,25 +275,5 @@ function PaySheet({ due, onClose, onDone }: { due: Due; onClose: () => void; onD
         <button className="primary">Mark as paid</button>
       </form>
     </Sheet>
-  )
-}
-
-/* ---------------- Family ---------------- */
-
-function FamilyTab() {
-  const [codes, setCodes] = useState<{ parent_code: string; kid_code: string } | null>(null)
-  useEffect(() => { supabase.rpc('family_codes').then(r => setCodes(r.data?.[0] ?? null)) }, [])
-  return (
-    <section className="card">
-      <h2>Invite family</h2>
-      {codes ? (
-        <>
-          <p>Parent code: <code>{codes.parent_code}</code></p>
-          <p>Kid code: <code>{codes.kid_code}</code></p>
-          <p className="muted small">Kids with the kid code can log their own spending only. Share codes privately.</p>
-        </>
-      ) : <p className="muted">Loading…</p>}
-      <p className="muted small">Need to review a budget? <Link to="/plan">Go to Budgets</Link></p>
-    </section>
   )
 }

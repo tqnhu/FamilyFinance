@@ -24,7 +24,7 @@ flowchart LR
     AUTH["Auth<br/>email + password, JWT"]
     REST["PostgREST API<br/>/rest/v1 tables and /rpc functions"]
     STORE["Storage API<br/>private bucket: receipts"]
-    PG[("Postgres<br/>13 tables, 2 views<br/>row-level security, 22 callable functions, 1 trigger")]
+    PG[("Postgres<br/>13 tables, 2 views<br/>row-level security, 25 callable functions, 1 trigger")]
     MAIL["Email sender<br/>sign-up confirmation"]
   end
   UI --> LIB
@@ -44,7 +44,7 @@ flowchart LR
 | From | To | How | Notes |
 |---|---|---|---|
 | Browser | Vercel | HTTPS GET of static files | Only the app itself. No data passes through Vercel. |
-| Browser | Supabase Auth | HTTPS (`signUp`, `signInWithPassword`, `getSession`, `signOut`) | Returns a JWT that the client stores and refreshes automatically. |
+| Browser | Supabase Auth | HTTPS (`signUp`, `signInWithPassword`, `resetPasswordForEmail`, `updateUser`, `getSession`, `signOut`) | Returns a JWT that the client stores and refreshes automatically. |
 | Browser | Supabase REST | HTTPS with the JWT. Reads and simple writes on tables, plus `POST /rpc/<function>` | Row-level security decides what each person sees and changes. |
 | Browser | Supabase Storage | HTTPS: `upload`, `createSignedUrl`, `remove` | Receipt photos only. Links to a photo expire after 10 minutes. |
 | Supabase | Email | SMTP, handled by Supabase | Sign-up confirmation. |
@@ -77,11 +77,12 @@ Supabase generates the REST API from the database. The app uses three kinds of c
 | `goals`, `goal_contributions`, `goal_totals` (view) | the whole family | functions only |
 | `join_attempts` | nobody | functions only (rate limit for invite codes) |
 
-### 2.2 Database functions called as `POST /rest/v1/rpc/<name>` (22)
+### 2.2 Database functions called as `POST /rest/v1/rpc/<name>` (25)
 
 | Area | Function | What it does |
 |---|---|---|
 | Family and identity | `create_family`, `join_family` | Make a family (caller becomes a parent, default categories seeded). Join with a parent or kid code. |
+| | `set_my_name`, `rename_family`, `rotate_invite_codes` | Change your own display name. A parent renames the family or replaces both invite codes (for example after one was shared by mistake). |
 | | `family_codes` | Parents read the two invite codes. |
 | | `set_username`, `email_for_username` | Choose a username. Look up the email for a username at sign-in (callable before signing in). |
 | Kids' money | `set_allowance`, `add_money` | Parents set the weekly allowance, split and savings match. Parents add or remove money in a jar. |
@@ -99,7 +100,10 @@ Not callable from the app: internal helpers (`lock_child`, `jar_balance`, `pendi
 
 ### 2.3 Auth and Storage
 
-* Auth: `signUp`, `signInWithPassword`, `getSession`, `onAuthStateChange`, `signOut`. Sign-in accepts an email or a username
+* Auth: `signUp`, `signInWithPassword`, `resetPasswordForEmail` (forgot password), `updateUser` (choose or change a password),
+  `getSession`, `onAuthStateChange`, `signOut` (this device or all devices). Following the link in a reset email signs the person in
+  briefly and the app shows a "Choose a new password" screen before anything else.
+   Sign-in accepts an email or a username
   (the username is turned into an email by `email_for_username` first).
 * Storage: bucket `receipts` (private, JPEG only, 3 MB limit). Files live at `<family id>/<expense id>/<random>.jpg`.
 
@@ -317,7 +321,7 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 
 * React 19, React Router, Vite, TypeScript, `supabase-js`, `papaparse` (CSV). No global state library: each screen loads
   its data with small hooks, and `AuthProvider` holds the signed-in person.
-* Routes: `/` Home, `/jars`, `/goals`, `/review` (parents, and the category detail for everyone), `/plan` (parents).
+* Routes: `/` Home, `/jars`, `/goals`, `/review` (parents, and the category detail for everyone), `/plan` (parents), `/settings` (profile and family settings, for everyone; opened from the name at the top left).
 * Business logic that does not need trust lives in plain, unit-tested modules: CSV parsing and category suggestions
   (`csv.ts`), photo resizing, goal estimates, the month comparison, tag periods and totals, category previews.
 * Installable PWA (service worker caches the app shell). Data always needs a connection.
@@ -328,8 +332,10 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 | # | Use case | Who | Screen | Calls |
 |---|---|---|---|---|
 | 1 | Create an account, sign in with email or username | everyone | Login | Auth, `email_for_username`, `set_username` |
-| 2 | Start a family and invite parents or kids with a code | parent | Setup, Plan → Family | `create_family`, `family_codes` |
+| 2 | Start a family and invite parents or kids with a code; copy a ready-made invitation; replace the codes | parent | Setup, Settings → Family | `create_family`, `family_codes`, `rotate_invite_codes` |
 | 3 | Join a family with a code | everyone | Setup | `join_family` |
+| 3a | Reset a forgotten password by email, or change it when signed in; sign out of all devices | everyone | Login, Settings → My profile | Auth |
+| 3b | See and edit your own profile (name, username); see who is in the family; rename the family | everyone (rename: parents) | Settings | `set_my_name`, `set_username`, `rename_family`, `members` |
 | 4 | Log, edit, delete an expense (category, note, date) | everyone, own rows (parents: any) | Home | `expenses` |
 | 5 | Attach a receipt photo | everyone | expense form | Storage, `expenses.receipt_path` |
 | 6 | Tag expenses; tag many at once; filter by tag | everyone (filter and bulk on Home) | expense form, Home | `tags`, `expenses` |
@@ -350,13 +356,15 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 ## 8. Operations
 
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
-  `supabase/migrations/002` to `011` in order (each is safe to run once).
-* **Tests:** 315 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 149 unit tests (`app/src/lib`), and about 250 browser checks against a stubbed backend (`app/e2e`).
+  `supabase/migrations/002` to `012` in order (each is safe to run once).
+* **Tests:** 349 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
+  storage), 162 unit tests (`app/src/lib`), and about 320 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits
 
+* Password reset needs the app's address to be allowed under Authentication → URL Configuration in Supabase, and uses Supabase's
+  built-in email sender, which has a low hourly limit.
 * Request and response only: nothing updates live on another person's screen until they reload or act.
 * No notifications. Due bills and purchase requests are only visible when someone opens the app.
 * Reads of plain lists are capped by Supabase at about 1,000 rows per request (the monthly lists and the month review).

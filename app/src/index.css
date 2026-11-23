@@ -121,3 +121,23 @@ body:has(.actionbar) .fab { display:none }
 .pop-head { font-weight:600; margin-bottom:6px } .pop-row { display:grid; grid-template-columns:52px 1fr auto; gap:8px; padding:3px 0; font-size:.9rem }
 .pop-date { color:var(--muted) } .pop-note { overflow:hidden; text-overflow:ellipsis; white-space:nowrap } .pop-foot { margin-top:6px; border-top:1px solid var(--line); padding-top:6px }
 @media (hover: none) { .cat-pop { display:none } } /* touch screens have no hover: a tap goes straight to the full list */
+
+/* Header, account menu, settings */
+header { gap:12px } .header-family { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:45% }
+.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap }
+.usermenu { position:relative } .usermenu-btn { background:none; border:none; padding:8px 10px; margin:-8px -10px; font-size:1rem; border-radius:10px; display:inline-flex; gap:4px; align-items:center }
+.usermenu-btn:hover, .usermenu-btn[aria-expanded=true] { background:color-mix(in srgb, var(--fg) 7%, transparent) }
+.menu { position:absolute; left:0; top:calc(100% + 8px); z-index:30; min-width:240px; background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 10px 28px #0003; padding:6px; display:flex; flex-direction:column }
+.menu-head { display:flex; flex-direction:column; padding:10px 12px 8px; border-bottom:1px solid var(--line); margin-bottom:4px }
+.menu a, .menu button[role=menuitem] { display:block; text-align:left; width:100%; padding:12px; border:none; background:none; color:var(--fg); text-decoration:none; border-radius:10px; font-size:1rem }
+.menu a:hover, .menu button[role=menuitem]:hover, .menu [role=menuitem]:focus-visible { background:color-mix(in srgb, var(--fg) 8%, transparent); outline:none }
+.menu-out { border-top:1px solid var(--line) !important; border-radius:0 0 10px 10px !important; margin-top:4px }
+.page-title { font-size:1.4rem; margin:8px 0 4px }
+.saverow { margin:10px 0 } .saverow-actions { display:flex; gap:12px; align-items:center } .saverow-actions button { width:auto; margin:0 }
+.facts { margin:10px 0 0; display:grid; gap:8px } .facts div { display:flex; justify-content:space-between; gap:12px; border-top:1px solid var(--line); padding-top:8px }
+.facts dt { color:var(--muted) } .facts dd { margin:0; text-align:right; overflow-wrap:anywhere }
+.big-name { font-size:1.2rem; font-weight:600; margin:4px 0 }
+.codebox { border:1px solid var(--line); border-radius:12px; padding:12px; margin:10px 0; display:grid; gap:8px }
+.codebox code { font-size:1.25rem; letter-spacing:.04em; user-select:all; overflow-wrap:anywhere }
+button.danger-btn { color:var(--bad); border-color:var(--bad); background:none }
+.row > .tag { align-self:center; height:fit-content; white-space:nowrap }
