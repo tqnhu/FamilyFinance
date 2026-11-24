@@ -231,6 +231,7 @@ There are two roles, **parent** and **child**, stored on the member row. Rules a
 | `SECURITY DEFINER` functions | All money movement, approvals, goals and bills go through functions that check the caller's role, the family, and balances before changing anything. |
 | Invite codes | 12 characters (48 bits) from a secure generator, matched ignoring case, spaces and dashes. 30 well-formed wrong guesses per hour per account, checked before the code is looked up. |
 | Storage policies | A receipt photo is readable and writable only by someone who may see its expense. The bucket is private and links expire. |
+| Function permissions | Signed-out visitors can call exactly one function (`email_for_username`, needed to sign in with a username). Every other function, including the helpers used by the row rules, requires a signed-in account. Every `SECURITY DEFINER` function has a fixed `search_path`. Checked against Supabase's security advisor. |
 | Public values only in the browser | The anon key is public by design. The service-role key is not used anywhere. |
 
 ## 5. Key flows
@@ -356,8 +357,8 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 ## 8. Operations
 
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
-  `supabase/migrations/002` to `012` in order (each is safe to run once).
-* **Tests:** 349 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
+  `supabase/migrations/002` to `013` in order (each is safe to run once).
+* **Tests:** 359 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
   storage), 162 unit tests (`app/src/lib`), and about 320 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
@@ -365,6 +366,7 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 
 * Password reset needs the app's address to be allowed under Authentication → URL Configuration in Supabase, and uses Supabase's
   built-in email sender, which has a low hourly limit.
+* Anyone can turn a username into that person's email through `email_for_username` (the price of signing in with a username). Fine for a private family app, worth revisiting before opening it to strangers.
 * Request and response only: nothing updates live on another person's screen until they reload or act.
 * No notifications. Due bills and purchase requests are only visible when someone opens the app.
 * Reads of plain lists are capped by Supabase at about 1,000 rows per request (the monthly lists and the month review).
