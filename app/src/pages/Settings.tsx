@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { FAMILY_NAME_MAX, NAME_MAX, PASSWORD_MIN, inviteText, nameProblem, passwordProblem, saveNameMessage, usernameMessage } from '../lib/profile'
 import type { Member } from '../lib/types'
+import { showChecklistAgain } from '../components/GettingStarted'
 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -63,6 +64,7 @@ function ProfileTab() {
   const [pw2, setPw2] = useState('')
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [pwBusy, setPwBusy] = useState(false)
+  const [shownAgain, setShownAgain] = useState(false)
   if (!member) return null
 
   async function saveName(v: string) {
@@ -120,6 +122,13 @@ function ProfileTab() {
             {pwMsg && <span role={pwMsg.ok ? 'status' : 'alert'} className={pwMsg.ok ? 'good small' : 'error small'}>{pwMsg.text}</span>}
           </div>
         </form>
+      </section>
+
+      <section className="card">
+        <h2>Getting started</h2>
+        <p className="muted small">Hid the "Get started" checklist on Home? Bring it back until the essentials are done.</p>
+        <button onClick={() => { showChecklistAgain(member.user_id); setShownAgain(true) }}>Show the checklist again</button>
+        {shownAgain && <p className="good small" role="status">It is back on Home.</p>}
       </section>
 
       <section className="card">

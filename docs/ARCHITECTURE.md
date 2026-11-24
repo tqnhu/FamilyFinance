@@ -51,7 +51,8 @@ flowchart LR
 
 Things the app deliberately does **not** do today: no realtime subscriptions, no push or email notifications from the app,
 no scheduled jobs, no serverless functions, no webhooks, no offline data. Every screen loads its data when opened and
-reloads after the person changes something. Weekly allowances are paid lazily: the first person who opens the Jars screen after a
+reloads after the person changes something. The tab-bar counts refresh on navigation, when the app returns to the front, and right after
+an action that changes them. Weekly allowances are paid lazily: the first person who opens the Jars screen after a
 payday triggers `settle_allowance()`.
 
 Build-time configuration is two public values, `VITE_SUPABASE_URL` and the publishable (anon) key. They are safe in the
@@ -335,6 +336,8 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 | 1 | Create an account, sign in with email or username | everyone | Login | Auth, `email_for_username`, `set_username` |
 | 2 | Start a family and invite parents or kids with a code; copy a ready-made invitation; replace the codes | parent | Setup, Settings → Family | `create_family`, `family_codes`, `rotate_invite_codes` |
 | 3 | Join a family with a code | everyone | Setup | `join_family` |
+| 3c | See a "Get started" checklist on Home (hideable, worked out from the family's own data) | everyone | Home | `expenses`, `members`, `allowances`, `bills`, `categories` (counts only) |
+| 3d | See counts on the tab bar: requests waiting, bills due, answers not yet seen | everyone | Tab bar | `purchase_requests`, `bills`, `bill_payments` |
 | 3a | Reset a forgotten password by email, or change it when signed in; sign out of all devices | everyone | Login, Settings → My profile | Auth |
 | 3b | See and edit your own profile (name, username); see who is in the family; rename the family | everyone (rename: parents) | Settings | `set_my_name`, `set_username`, `rename_family`, `members` |
 | 4 | Log, edit, delete an expense (category, note, date) | everyone, own rows (parents: any) | Home | `expenses` |
@@ -359,7 +362,7 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `013` in order (each is safe to run once).
 * **Tests:** 359 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 162 unit tests (`app/src/lib`), and about 320 browser checks against a stubbed backend (`app/e2e`).
+  storage), 179 unit tests (`app/src/lib`), and about 370 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits

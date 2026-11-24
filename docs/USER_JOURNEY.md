@@ -85,7 +85,7 @@ that exists today, and how we will know it worked.
   * Plan → Import: bring in past bank statements, review suggested categories, undo if wrong.
   * Jars: set each child's weekly allowance and how it splits into Spend, Save and Give.
 * **Feeling.** Productive but slightly overwhelmed. Satisfied when the budget bars show real numbers.
-* **Friction today.** Nothing guides the order of these steps. A new parent lands on an empty Home with no checklist.
+* **Friction today.** The order of the steps is not enforced, but a "Get started" card on Home now lists them, ticks them off from the family's own data, and links to each screen.
 * **Success.** Budgets set, at least one bill added, and an allowance configured, within two weeks.
 
 ### Stage 4. The weekly rhythm: spend, approve, teach
@@ -240,8 +240,8 @@ journey
 
 | Priority | Opportunity | Stage it helps | Today |
 |---|---|---|---|
-| 1 | **Reminders and notifications** (email first): a child's request is waiting, a bill is due, a gentle nudge when nothing was logged for several days | 2, 4 | Not built |
-| 2 | **First-run checklist** on an empty Home: add an expense, set budgets, invite your partner, set an allowance | 1, 2, 3 | Not built |
+| 1 | **Reminders and notifications** (email first): a child's request is waiting, a bill is due, a gentle nudge when nothing was logged for several days | 2, 4 | **Partly built**: counts on the tab bar when the app is open. Email and push are not built (see ROADMAP.md) |
+| 2 | **First-run checklist** on an empty Home: add an expense, set budgets, invite your partner, set an allowance | 1, 2, 3 | **Built** (the "Get started" card on Home) |
 | 3 | **One-tap invite sharing**: copies the code with a short message for chat apps | 0, 1 | **Built** (Settings → Family → Copy invitation) |
 | 4 | **Parent-assisted kid sign-up**: a guided way to create a child's account on their device | 1 | Needs the child's own email |
 | 5 | **Monthly summary** sent to the family and a "family meeting" layout for a shared screen | 5 | Review page only |

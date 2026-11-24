@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { announceChange } from './badges'
 import type { Allowance, JarEntry, Member, PurchaseRequest, Jar } from './types'
 
 export const JARS: { id: Jar; label: string; emoji: string; hint: string }[] = [
@@ -45,6 +46,7 @@ export function useJars() {
       allowances: Object.fromEntries((a.data ?? []).map(x => [x.child_id, x])),
     })
     setLoading(false)
+    announceChange() // a request may have been answered, so the tab counts may have changed
   }, [])
 
   useEffect(() => { void reload() }, [reload])

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { announceChange } from './badges'
 
 export type Bill = {
   id: string; name: string; category_id: string | null; amount_cents: number
@@ -73,6 +74,7 @@ export function useBills() {
     ])
     if (b.error || p.error) setError((b.error ?? p.error)!.message)
     setBills((b.data ?? []) as Bill[]); setPayments((p.data ?? []) as unknown as Payment[]); setLoading(false)
+    announceChange() // a bill was paid, changed or added, so the tab counts may have changed
   }, [])
   useEffect(() => { void reload() }, [reload])
   return { bills, payments, loading, error, reload }

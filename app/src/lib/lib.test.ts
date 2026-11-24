@@ -401,3 +401,91 @@ describe('reset wording and invitations', () => {
     expect(inviteText({ familyName: 'F', who: 'parent', code: 'c', url: 'u' })).toContain('parent code: c')
   })
 })
+
+import { badgeText, unseenAnswers } from './badges'
+import { DEFAULT_BUDGETS, budgetsChanged, checklistSteps, progress, type Facts } from './checklist'
+import { getLocal, removeLocal, setLocal } from './local'
+
+describe('badgeText', () => {
+  it('is empty for nothing, the number to 9, then 9+', () => {
+    expect(badgeText(0)).toBe(''); expect(badgeText(-3)).toBe(''); expect(badgeText(1)).toBe('1'); expect(badgeText(9)).toBe('9'); expect(badgeText(10)).toBe('9+'); expect(badgeText(250)).toBe('9+')
+  })
+})
+describe('unseenAnswers (what a child has not seen yet)', () => {
+  const now = new Date('2026-11-24T12:00:00Z')
+  const row = (status: string, daysAgo: number | null) => ({ status, decided_at: daysAgo === null ? null : new Date(now.getTime() - daysAgo * 86_400_000).toISOString() })
+  it('counts yes and no answers, not requests still waiting', () => {
+    expect(unseenAnswers([row('approved', 1), row('declined', 2), row('pending', 0), row('cancelled', 1)], null, now)).toBe(2)
+  })
+  it('only answers newer than the last visit', () => {
+    const seen = new Date(now.getTime() - 36 * 3_600_000).toISOString() // 1.5 days ago
+    expect(unseenAnswers([row('approved', 1), row('approved', 2), row('declined', 3)], seen, now)).toBe(1)
+  })
+  it('never reaches back more than two weeks, even with no recorded visit (a new device)', () => {
+    expect(unseenAnswers([row('approved', 13), row('approved', 15), row('declined', 40)], null, now)).toBe(1)
+  })
+  it('an answer with no time cannot be counted, and a garbled visit time is ignored', () => {
+    expect(unseenAnswers([row('approved', null)], null, now)).toBe(0)
+    expect(unseenAnswers([row('approved', 1)], 'not a date', now)).toBe(1)
+  })
+  it('nothing in, nothing out', () => expect(unseenAnswers([], null, now)).toBe(0))
+})
+
+describe('getting-started checklist', () => {
+  const base: Facts = { role: 'parent', expenses: 0, members: 1, children: 0, allowances: 0, bills: 0, budgetsChanged: false, budgetsConfirmed: false, standalone: false, jarsVisited: false }
+  const ids = (f: Partial<Facts>) => checklistSteps({ ...base, ...f }).map(s => s.id)
+  const done = (f: Partial<Facts>) => Object.fromEntries(checklistSteps({ ...base, ...f }).map(s => [s.id, s.done]))
+  it('a brand-new family starts at nothing done', () => {
+    expect(progress(checklistSteps(base))).toEqual({ done: 0, total: 3, complete: false })
+    expect(ids({})).toEqual(['expense', 'budgets', 'invite', 'bill', 'install'])
+  })
+  it('the allowance step only exists once there is a child', () => {
+    expect(ids({ children: 0 })).not.toContain('allowance'); expect(ids({ members: 2, children: 1 })).toContain('allowance')
+  })
+  it('each step turns done from the family\'s own data', () => {
+    expect(done({ expenses: 1 }).expense).toBe(true); expect(done({ members: 2 }).invite).toBe(true); expect(done({ children: 1, allowances: 1 }).allowance).toBe(true)
+    expect(done({ bills: 1 }).bill).toBe(true); expect(done({ standalone: true }).install).toBe(true)
+  })
+  it('budgets count as done if edited OR confirmed by a parent', () => {
+    expect(done({}).budgets).toBe(false); expect(done({ budgetsChanged: true }).budgets).toBe(true); expect(done({ budgetsConfirmed: true }).budgets).toBe(true)
+  })
+  it('optional steps never hold the checklist open', () => {
+    const f = { expenses: 3, members: 2, budgetsConfirmed: true }
+    expect(progress(checklistSteps({ ...base, ...f }))).toEqual({ done: 3, total: 3, complete: true })
+    expect(done(f).bill).toBe(false) // still not done, and not needed
+  })
+  it('with a child, finishing needs the allowance too', () => {
+    const f = { expenses: 3, members: 2, budgetsConfirmed: true, children: 1 }
+    expect(progress(checklistSteps({ ...base, ...f })).complete).toBe(false)
+    expect(progress(checklistSteps({ ...base, ...f, allowances: 1 })).complete).toBe(true)
+  })
+  it('a child gets a short list of their own', () => {
+    const kid = (f: Partial<Facts>) => checklistSteps({ ...base, role: 'child', ...f })
+    expect(kid({}).map(s => s.id)).toEqual(['expense', 'jars', 'install'])
+    expect(progress(kid({}))).toEqual({ done: 0, total: 2, complete: false })
+    expect(progress(kid({ expenses: 1, jarsVisited: true })).complete).toBe(true)
+  })
+  it('every step says where to go or what to do', () => { for (const s of checklistSteps({ ...base, children: 1 })) expect(Boolean(s.to || s.action)).toBe(true) })
+  it('knows when the starting budgets were changed', () => {
+    const start = Object.entries(DEFAULT_BUDGETS).map(([name, budget_cents]) => ({ name, budget_cents }))
+    expect(budgetsChanged(start)).toBe(false)
+    expect(budgetsChanged(start.map(c => (c.name === 'Fun' ? { ...c, budget_cents: 9000 } : c)))).toBe(true)
+    expect(budgetsChanged([...start, { name: 'Pets', budget_cents: 0 }])).toBe(true)
+    expect(budgetsChanged(start.slice(1))).toBe(true)
+    expect(budgetsChanged(start.map(c => (c.name === 'Kids' ? { ...c, archived: true } : c)))).toBe(true)
+    expect(budgetsChanged(start.map(c => (c.name === 'Kids' ? { ...c, name: 'Children' } : c)))).toBe(true)
+  })
+})
+
+describe('local storage helper', () => {
+  it('stores and removes', () => {
+    const mem: Record<string, string> = {}
+    ;(globalThis as unknown as { window: unknown }).window = { localStorage: { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v }, removeItem: (k: string) => { delete mem[k] } } }
+    setLocal('a', '1'); expect(getLocal('a')).toBe('1'); removeLocal('a'); expect(getLocal('a')).toBeNull()
+  })
+  it('never throws when the browser refuses storage', () => {
+    const boom = () => { throw new Error('blocked') }
+    ;(globalThis as unknown as { window: unknown }).window = { localStorage: { getItem: boom, setItem: boom, removeItem: boom } }
+    expect(getLocal('a')).toBeNull(); expect(() => setLocal('a', '1')).not.toThrow(); expect(() => removeLocal('a')).not.toThrow()
+  })
+})

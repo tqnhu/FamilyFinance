@@ -10,6 +10,7 @@ import AddExpense from './AddExpense'
 import DueSoon from '../components/DueSoon'
 import ExpenseList from '../components/ExpenseList'
 import Bar from '../components/Bar'
+import GettingStarted from '../components/GettingStarted'
 import { categoryExpenses, latest, monthKey, monthOffset } from '../lib/category'
 
 export default function Dashboard() {
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [people, setPeople] = useState<Member[]>([])
   const [adding, setAdding] = useState(false)
+  const [version, setVersion] = useState(0) // bumped after each load so the checklist re-checks what is done
   const [editing, setEditing] = useState<Expense | null>(null)
   const [params] = useSearchParams()
   // 0 = this month, -1 = last month, ... (so older mistakes can be fixed too). A ?month=YYYY-MM in the address opens that month (the back link of a category page uses it).
@@ -33,7 +35,7 @@ export default function Dashboard() {
         .order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('members').select('*'),
     ])
-    setCats(c.data ?? []); setExpenses(e.data ?? []); setPeople(m.data ?? [])
+    setCats(c.data ?? []); setExpenses(e.data ?? []); setPeople(m.data ?? []); setVersion(v => v + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset])
   useEffect(() => { void load() }, [load])
@@ -61,6 +63,8 @@ export default function Dashboard() {
         <strong>{isCurrent ? 'This month' : monthLabel}</strong>
         <button aria-label="Next month" onClick={() => setOffset(offset + 1)} disabled={isCurrent}>›</button>
       </div>
+
+      {isCurrent && <GettingStarted onAddExpense={() => setAdding(true)} version={version} />}
 
       <section className="card">
         <p className="muted">{isParent ? 'Family spending' : 'Your spending'} {isCurrent ? 'this month' : `in ${monthLabel}`}</p>
