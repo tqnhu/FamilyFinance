@@ -2,12 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { supabase } from './supabase'
 import { useAuth } from '../auth'
-import { upcoming, type Bill, type Payment } from './bills'
+import { SOON_DAYS, dueBillCount, upcoming, type Bill, type Payment } from './bills'
 import { getLocal } from './local'
+import { DATA_CHANGED, announceChange } from './events'
 
-/** Pages dispatch this after something changed that a badge might count, so the badges update without a reload. */
-export const DATA_CHANGED = 'ff:data-changed'
-export const announceChange = () => { if (typeof window !== 'undefined') window.dispatchEvent(new Event(DATA_CHANGED)) }
+export { DATA_CHANGED, announceChange }
 
 /** When a child last looked at their Jars page, kept on this device. */
 export const jarsSeenKey = (userId: string) => `ff:jars-seen:${userId}`
@@ -17,7 +16,7 @@ export const badgeText = (n: number) => (n <= 0 ? '' : n > 9 ? '9+' : String(n))
 
 const DAY = 86_400_000
 export const DECISION_WINDOW_DAYS = 14
-export const BILL_WINDOW_DAYS = 7
+export const BILL_WINDOW_DAYS = SOON_DAYS
 
 /**
  * How many of a child's requests were answered (yes or no) since they last looked at Jars.
@@ -49,7 +48,7 @@ export function useBadges(): Badges {
         supabase.from('bills').select('*'),
         supabase.from('bill_payments').select('id, bill_id, due_on, expense_id'),
       ])
-      const due = upcoming((bills.data ?? []) as Bill[], (pays.data ?? []) as unknown as Payment[], new Date(), BILL_WINDOW_DAYS).length
+      const due = dueBillCount(upcoming((bills.data ?? []) as Bill[], (pays.data ?? []) as unknown as Payment[], new Date(), BILL_WINDOW_DAYS))
       setBadges({ jars: req.count ?? 0, plan: due })
     } else {
       const since = new Date(Date.now() - DECISION_WINDOW_DAYS * DAY).toISOString()

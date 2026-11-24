@@ -78,6 +78,16 @@ Small red counts on the tab bar.
 * **Known limit.** A badge only appears when the app is open or comes to the front. It cannot alert someone who has not opened the app. That needs notifications (#5).
 * **Tests.** For both features together: 17 unit tests (checklist rules, badge counting, safe local storage) and 50 browser checks (every checklist state for parents and children, install handling, hiding and bringing back, and the badges for parents and children including live refresh).
 
+### Upcoming bills highlighted in Plan ✅
+
+Plan → Bills now shows which bill is next.
+
+* **"Coming up" card at the top:** one row per bill that is overdue or due within 30 days, soonest first, with the amount, a countdown in plain words ("4 days overdue", "Due in 3 days", "Due today") and a Mark paid button. A monthly bill left unpaid for months shows once, with "+N more unpaid".
+* **Three levels, each with words and an icon so colour is never the only signal:** overdue (⚠️, red), due within a week (⏰, amber), due within 30 days (🗓️, green). Nothing due says so.
+* **Bill cards** are ordered by what is due next, carry a coloured edge and a countdown chip, and the next unpaid date inside each card is tinted and bold. Far-off bills just say "Next due …".
+* **The Plan tab badge now counts bills, not due dates**, so it agrees with the list (a monthly bill that is months behind counts once, not as "9+").
+* **Tests.** 10 new unit tests and 30 browser checks (ordering, level boundaries at 0, 7, 8, 30 and 31 days, marking paid from the list, the badge agreeing with the list, monthly bills, already-paid dates, accessibility).
+
 ## 3. The rest of the list
 
 ### A. Onboarding and retention
@@ -143,7 +153,7 @@ Small red counts on the tab bar.
 * **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages.
 * **Accounts and family.** Forgot-password, an account menu with My profile and Family settings (name, members, invite codes with copy and a ready-made invitation, replacing leaked codes), forgiving invite codes.
 * **Security.** Row-level security on every table, column-level permissions, money rules inside the database, signed-out visitors limited to one function, checked against Supabase's security advisor.
-* **Quality.** 359 database checks, 179 unit tests and about 370 browser checks, plus architecture and user-journey documents.
+* **Quality.** 359 database checks, 189 unit tests and about 400 browser checks, plus architecture and user-journey documents.
 
 ## 6. Decisions log
 

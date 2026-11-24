@@ -152,3 +152,18 @@ button.danger-btn { color:var(--bad); border-color:var(--bad); background:none }
 .start-actions button:not(.link) { padding:8px 12px; width:auto; margin:0 } .btn-link { font-weight:600; text-decoration:none; padding:4px 2px }
 .tabicon { position:relative; display:inline-block }
 .tabs a .badge-dot { position:absolute; top:-5px; right:-12px; min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:var(--bad); color:#fff; font-size:.7rem; font-weight:700; line-height:18px; text-align:center }
+
+/* Bills: what is coming. Colour always comes with an icon and words. */
+:root { --warn-text:#b45309; --bad-text:#b91c1c }
+@media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { --warn-text:#fbbf24; --bad-text:#f87171 } }
+:root[data-theme="dark"] { --warn-text:#fbbf24; --bad-text:#f87171 }
+.urgency { display:inline-block; font-size:.8rem; font-weight:600; padding:2px 10px; border-radius:10px; border:1px solid currentColor; white-space:nowrap }
+.urgency.overdue { color:var(--bad-text) } .urgency.soon { color:var(--warn-text) } .urgency.upcoming { color:var(--brand) }
+.card.bill { border-left:5px solid var(--line) }
+.card.bill[data-urgency=overdue] { border-left-color:var(--bad) } .card.bill[data-urgency=soon] { border-left-color:var(--warn) } .card.bill[data-urgency=upcoming] { border-left-color:var(--brand) }
+.row.item.coming { border-radius:10px; padding:10px 8px; margin:0 -8px }
+.row.item.coming.overdue, .row.item.next.overdue { background:color-mix(in srgb, var(--bad) 9%, transparent) }
+.row.item.coming.soon, .row.item.next.soon { background:color-mix(in srgb, var(--warn) 12%, transparent) }
+.row.item.coming.upcoming, .row.item.next.upcoming { background:color-mix(in srgb, var(--brand) 9%, transparent) }
+.row.item.next { border-radius:10px; padding-left:8px; padding-right:8px } .next-date { font-weight:700 } .bill-next { margin:2px 0 8px }
+.row.item.coming .right button, .row.item .right button { white-space:nowrap }

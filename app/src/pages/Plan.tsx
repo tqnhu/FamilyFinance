@@ -3,7 +3,7 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro, euroWhole, parseEuro, today } from '../lib/money'
-import { FREQ, MONTHS, dueList, isMonthlyBill, monthlySetAside, useBills, yearlyCost, type Bill, type Due } from '../lib/bills'
+import { FREQ, MONTHS, UPCOMING_DAYS, URGENCY_ICON, comingUp, dueList, dueText, isMonthlyBill, monthlySetAside, nextUnpaid, urgency, useBills, yearlyCost, type Bill, type Due } from '../lib/bills'
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
 import ImportTab from './ImportTab'
@@ -153,6 +153,12 @@ function BillsTab() {
   const todo = dues.filter(d => !d.paid)
   const todoTotal = todo.reduce((s, d) => s + d.bill.amount_cents, 0)
   const catOf = (id: string | null) => cats.find(c => c.id === id)
+  // what is coming: each bill's next unpaid date, the list of those that are overdue or due within 30 days, and the bills in that order
+  const today = new Date()
+  const next = nextUnpaid(bills, payments, today)
+  const coming = comingUp(bills, payments, today)
+  const ordered = [...active].sort((a, b) => (next.get(a.id)?.due ?? '9999-12-31').localeCompare(next.get(b.id)?.due ?? '9999-12-31') || a.name.localeCompare(b.name))
+  const short = (iso: string) => new Date(iso + 'T12:00:00').toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })
 
   async function undo(d: Due) {
     if (!d.paid || !confirm(`Undo the payment for "${d.bill.name}"? The expense is removed too.`)) return
@@ -168,6 +174,30 @@ function BillsTab() {
 
   return (
     <>
+      {active.length > 0 && (
+        <section className="card" aria-labelledby="coming-title">
+          <h2 id="coming-title">Coming up</h2>
+          {coming.length === 0
+            ? <p className="muted small">Nothing is due in the next {UPCOMING_DAYS} days. ✓</p>
+            : coming.map(({ bill, next: d, more }) => {
+              const u = urgency(d.days)
+              return (
+                <div key={bill.id} className={`row item coming ${u}`} data-urgency={u}>
+                  <div>
+                    <div><strong>{bill.name}</strong> <span className="muted">{short(d.due)}</span></div>
+                    <span className={`urgency ${u}`}>{URGENCY_ICON[u]} {dueText(d.days)}</span>
+                    {more > 0 && <span className="muted small"> · +{more} more unpaid</span>}
+                  </div>
+                  <div className="right">
+                    <strong>{euro(bill.amount_cents)}</strong>
+                    <div><button onClick={() => setPay(d)} aria-label={`Mark ${bill.name} paid`}>Mark paid</button></div>
+                  </div>
+                </div>
+              )
+            })}
+        </section>
+      )}
+
       <section className="card">
         <h2>{year} at a glance</h2>
         <div className="tiles">
@@ -182,24 +212,34 @@ function BillsTab() {
       <button className="primary" onClick={() => setEdit('new')}>＋ Add a bill</button>
       {!active.length && <section className="card"><p className="muted">Add things like car insurance, home insurance, road tax or a yearly subscription. You will see when each is due, mark it paid, and the money counts in the yearly overview.</p></section>}
 
-      {active.map(b => (
-        <section key={b.id} className="card">
+      {ordered.map(b => {
+        const n = next.get(b.id)
+        const u = n ? urgency(n.days) : null
+        return (
+        <section key={b.id} className="card bill" data-urgency={u ?? 'none'}>
           <div className="row"><h2>{b.name}</h2><strong>{euro(b.amount_cents)}</strong></div>
+          {n && u !== 'later' && <p className="bill-next"><span className={`urgency ${u}`}>{URGENCY_ICON[u!]} {dueText(n.days)}</span> <span className="muted small">{short(n.due)}</span></p>}
+          {n && u === 'later' && <p className="muted small bill-next">Next due {short(n.due)}</p>}
+          {!n && <p className="muted small bill-next">✓ Nothing left to pay</p>}
           <p className="muted small">{FREQ[b.times_per_year]} · {catOf(b.category_id) ? `${catOf(b.category_id)!.emoji} ${catOf(b.category_id)!.name}` : 'No category'} · {isMonthlyBill(b) ? 'counts in your monthly budget' : `${euro(monthlySetAside(b))} a month to put aside`}</p>
-          {dues.filter(d => d.bill.id === b.id).map(d => (
-            <div key={d.due} className="row item">
+          {dues.filter(d => d.bill.id === b.id).map(d => {
+            const isNext = n?.due === d.due
+            return (
+            <div key={d.due} className={`row item ${isNext && u ? `next ${u}` : ''}`} data-next={isNext ? 'true' : undefined}>
               <div>
-                <div>{new Date(d.due + 'T12:00:00').toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}</div>
+                <div className={isNext ? 'due-date next-date' : 'due-date'}>{short(d.due)}</div>
                 {d.paid
                   ? <span className="tag ok">✓ Paid {euro(d.paid.expenses?.amount_cents ?? 0)}{d.paid.expenses && ` on ${new Date(d.paid.expenses.spent_on + 'T12:00:00').toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })}`}</span>
-                  : d.overdue ? <span className="tag warn">⚠️ Overdue</span> : <span className="tag">{d.days === 0 ? 'Due today' : `In ${d.days} days`}</span>}
+                  : <span className={`urgency ${urgency(d.days)}`}>{URGENCY_ICON[urgency(d.days)]} {dueText(d.days)}</span>}
               </div>
               {d.paid ? <button className="link small" onClick={() => undo(d)}>Undo</button> : <button onClick={() => setPay(d)}>Mark paid</button>}
             </div>
-          ))}
+            )
+          })}
           <div className="btn-row"><button onClick={() => setEdit(b)}>Edit</button><button onClick={() => setEnded(b, true)}>End bill</button></div>
         </section>
-      ))}
+        )
+      })}
 
       {ended.length > 0 && (
         <section className="card">

@@ -489,3 +489,49 @@ describe('local storage helper', () => {
     expect(getLocal('a')).toBeNull(); expect(() => setLocal('a', '1')).not.toThrow(); expect(() => removeLocal('a')).not.toThrow()
   })
 })
+
+import { SOON_DAYS, UPCOMING_DAYS, comingUp, dueBillCount, dueText, nextUnpaid, urgency } from './bills'
+describe('urgency and wording of a due date', () => {
+  it('overdue below zero, soon up to 7 days, upcoming up to 30, then later (boundaries exact)', () => {
+    const at = (d: number) => urgency(d)
+    expect([at(-30), at(-1)]).toEqual(['overdue', 'overdue']); expect([at(0), at(1), at(SOON_DAYS)]).toEqual(['soon', 'soon', 'soon'])
+    expect([at(SOON_DAYS + 1), at(UPCOMING_DAYS)]).toEqual(['upcoming', 'upcoming']); expect([at(UPCOMING_DAYS + 1), at(400)]).toEqual(['later', 'later'])
+  })
+  it('says it in plain words, singular and plural', () => {
+    expect(dueText(0)).toBe('Due today'); expect(dueText(1)).toBe('Due tomorrow'); expect(dueText(3)).toBe('Due in 3 days'); expect(dueText(-1)).toBe('1 day overdue'); expect(dueText(-5)).toBe('5 days overdue')
+  })
+})
+describe('coming up', () => {
+  const today = new Date('2026-11-24T12:00:00')
+  const bill = (id: string, due_month: number, due_day: number, o: Partial<Bill> = {}): Bill => ({ id, name: id, category_id: null, amount_cents: 1000, times_per_year: 1, due_month, due_day, archived: false, created_at: '2026-11-01T00:00:00Z', ...o })
+  const all = [bill('Overdue', 11, 20), bill('Soon', 11, 27), bill('Upcoming', 12, 15), bill('Later', 3, 1), bill('Ended', 11, 25, { archived: true })]
+  it('lists overdue, soon and upcoming bills, soonest first, and leaves out later and ended ones', () => {
+    expect(comingUp(all, [], today).map(c => [c.bill.id, urgency(c.next.days)])).toEqual([['Overdue', 'overdue'], ['Soon', 'soon'], ['Upcoming', 'upcoming']])
+  })
+  it('a paid date drops out', () => {
+    const paid: Payment = { id: 'p', bill_id: 'Soon', due_on: '2026-11-27', expense_id: 'e', expenses: { amount_cents: 1000, spent_on: '2026-11-26' } }
+    expect(comingUp(all, [paid], today).map(c => c.bill.id)).toEqual(['Overdue', 'Upcoming'])
+  })
+  it('a bill unpaid for months shows once, with a count of the rest', () => {
+    const monthly = bill('Monthly', 1, 5, { times_per_year: 12, created_at: '2025-01-01T00:00:00Z' })
+    const rows = comingUp([monthly], [], today)
+    expect(rows).toHaveLength(1); expect(rows[0].next.due).toBe('2026-01-05'); expect(rows[0].more).toBe(11) // Jan to Nov overdue, plus 5 Dec inside 30 days = 12 dates
+  })
+  it('the window can be changed', () => {
+    expect(comingUp(all, [], today, 2).map(c => c.bill.id)).toEqual(['Overdue'])
+    expect(comingUp(all, [], today, 5).map(c => c.bill.id)).toEqual(['Overdue', 'Soon'])
+  })
+  it('looks across the new year', () => {
+    expect(comingUp([bill('NewYear', 1, 3)], [], new Date('2026-12-28T12:00:00')).map(c => c.next.due)).toEqual(['2027-01-03'])
+  })
+  it('nothing in, nothing out', () => { expect(comingUp([], [], today)).toEqual([]); expect(comingUp([bill('Later', 3, 1)], [], today)).toEqual([]) })
+  it('finds each bill\'s next unpaid date, including far-off ones', () => {
+    const n = nextUnpaid(all, [], today)
+    expect(n.get('Overdue')?.due).toBe('2026-11-20'); expect(n.get('Later')?.due).toBe('2027-03-01'); expect(n.has('Ended')).toBe(false)
+  })
+  it('counts bills, not dates', () => {
+    const dues = comingUp([bill('Monthly', 1, 5, { times_per_year: 12, created_at: '2025-01-01T00:00:00Z' }), ...all.slice(0, 2)], [], today)
+    expect(dueBillCount(dues)).toBe(3)
+    expect(dueBillCount([{ bill: all[0] }, { bill: all[0] }, { bill: all[1] }])).toBe(2)
+  })
+})

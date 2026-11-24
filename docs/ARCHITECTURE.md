@@ -349,7 +349,7 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 | 10 | Compare this month with last month | parent | Review → This month | `expenses` |
 | 11 | See the year by month and by category | parent | Review → Year | `year_summary` |
 | 12 | Add up spending by tag for a month, a year or all time | parent | Review → Tags | `tag_totals`, `tag_months` |
-| 13 | Track yearly, half-yearly, quarterly and monthly bills; mark paid; get reminders | parent | Plan → Bills, Home | `bills`, `mark_bill_paid`, `unmark_bill_paid` |
+| 13 | Track yearly, half-yearly, quarterly and monthly bills; mark paid; see which are coming up (highlighted by urgency); get reminders | parent | Plan → Bills, Home | `bills`, `mark_bill_paid`, `unmark_bill_paid` |
 | 14 | Import a bank CSV with suggested categories; undo an import | parent | Plan → Import | `expenses` (batched) |
 | 15 | Give a child a weekly allowance split into Spend, Save, Give, with an optional savings match | parent | Jars | `set_allowance`, `settle_allowance` |
 | 16 | Add or remove a child's money; move money between jars | parent, child (limited) | Jars | `add_money`, `move_money` |
@@ -362,7 +362,7 @@ and then the chosen rows are inserted in batches of 200 with one `import_batch` 
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `013` in order (each is safe to run once).
 * **Tests:** 359 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 179 unit tests (`app/src/lib`), and about 370 browser checks against a stubbed backend (`app/e2e`).
+  storage), 189 unit tests (`app/src/lib`), and about 400 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits

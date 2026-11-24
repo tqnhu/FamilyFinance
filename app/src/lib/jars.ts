@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { announceChange } from './badges'
+import { announceChange } from './events'
 import type { Allowance, JarEntry, Member, PurchaseRequest, Jar } from './types'
 
 export const JARS: { id: Jar; label: string; emoji: string; hint: string }[] = [

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { announceChange } from './badges'
+import { announceChange } from './events'
 
 export type Bill = {
   id: string; name: string; category_id: string | null; amount_cents: number
@@ -61,6 +61,49 @@ export function upcoming(bills: Bill[], payments: Payment[], today = new Date(),
   return [...dueList(bills, payments, y, today), ...dueList(bills, payments, y + 1, today)]
     .filter(d => !d.paid && d.days <= withinDays)
 }
+
+/* ---------- highlighting what is coming ---------- */
+
+export const SOON_DAYS = 7       // "due soon": the same window the Plan tab badge counts
+export const UPCOMING_DAYS = 30  // "coming up"
+
+export type Urgency = 'overdue' | 'soon' | 'upcoming' | 'later'
+/** How pressing a due date is, from the days left (negative = overdue). */
+export const urgency = (days: number): Urgency => (days < 0 ? 'overdue' : days <= SOON_DAYS ? 'soon' : days <= UPCOMING_DAYS ? 'upcoming' : 'later')
+/** An icon that goes with the words, so the meaning never rests on colour alone. */
+export const URGENCY_ICON: Record<Urgency, string> = { overdue: '⚠️', soon: '⏰', upcoming: '🗓️', later: '' }
+
+/** "Due today", "Due tomorrow", "Due in 3 days", "1 day overdue". */
+export function dueText(days: number): string {
+  if (days < 0) { const n = -days; return `${n} ${n === 1 ? 'day' : 'days'} overdue` }
+  if (days === 0) return 'Due today'
+  if (days === 1) return 'Due tomorrow'
+  return `Due in ${days} days`
+}
+
+/** The earliest unpaid due date of each active bill (overdue ones first), looking up to a year ahead. */
+export function nextUnpaid(bills: Bill[], payments: Payment[], today = new Date()): Map<string, Due> {
+  const out = new Map<string, Due>()
+  for (const d of upcoming(bills, payments, today, 366)) if (!out.has(d.bill.id)) out.set(d.bill.id, d)
+  return out
+}
+
+export type ComingUp = { bill: Bill; next: Due; more: number }
+
+/**
+ * One row per bill that is overdue or due within `withinDays`: its earliest unpaid date, and how many more unpaid
+ * dates it has in that stretch (a monthly bill left unpaid for months shows once, with a count). Soonest first.
+ */
+export function comingUp(bills: Bill[], payments: Payment[], today = new Date(), withinDays = UPCOMING_DAYS): ComingUp[] {
+  const groups = new Map<string, Due[]>()
+  for (const d of upcoming(bills, payments, today, withinDays)) groups.set(d.bill.id, [...(groups.get(d.bill.id) ?? []), d])
+  return [...groups.values()]
+    .map(g => ({ bill: g[0].bill, next: g[0], more: g.length - 1 }))
+    .sort((a, b) => a.next.due.localeCompare(b.next.due) || a.bill.name.localeCompare(b.bill.name))
+}
+
+/** How many different bills are overdue or due soon (a bill unpaid for several months counts once). */
+export const dueBillCount = (dues: Pick<Due, 'bill'>[]) => new Set(dues.map(d => d.bill.id)).size
 
 export function useBills() {
   const [bills, setBills] = useState<Bill[]>([])
