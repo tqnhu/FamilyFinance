@@ -252,5 +252,6 @@ journey
 
 ## 9. Links
 
+* What comes next, with status, impact and complexity: [ROADMAP.md](ROADMAP.md)
 * How it is built: [ARCHITECTURE.md](ARCHITECTURE.md)
 * The screens named above are all in the running app: Home, Jars, Goals, Review and Plan.
