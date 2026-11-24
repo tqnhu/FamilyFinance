@@ -236,6 +236,8 @@ journey
 | 6 Yearly | Family still active after a year; kids using it themselves | Yes |
 | Outcomes | Categories within budget; goals reached; kids' saving streaks | Improving month on month |
 
+The full list of metrics, the north star, targets and the queries behind them are in [ROADMAP.md, section 7](ROADMAP.md#7-measuring-success-kpis).
+
 ## 8. Gaps and opportunities, in order of impact on the journey
 
 | Priority | Opportunity | Stage it helps | Today |

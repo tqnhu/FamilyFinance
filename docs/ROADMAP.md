@@ -51,6 +51,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 19 | Username lookup exposes an email address | ❓ Decision | Low now, high before opening to strangers | M–L | see the decision log |
 | 20 | Smaller JavaScript bundle and paging for long lists | 💡 Later | Low–medium | S and M | none |
 | 21 | Privacy policy and terms | 💡 Later | Required before opening to others | S (writing), possibly legal review | none |
+| 22 | Measure it: KPI queries, then first-party usage events | 🔜 Next | High (shows what to build next) | S for the queries (written), M for usage events | none |
 
 ## 2. Done in the latest release
 
@@ -136,9 +137,11 @@ Plan → Bills now shows which bill is next.
 
 **#21 Privacy policy and terms 💡.** Not needed for your own family. Required before opening the app to others, because it holds children's data. The writing is S and may need legal review.
 
+**#22 Measure it 🔜.** Step one is done: [kpi-queries.sql](kpi-queries.sql) holds 16 read-only queries behind the metrics in section 7, checked against a scratch database. Run them weekly, by hand. Step two (M): a small `usage_events` table (who, when, which screen or action, never an amount) so that visits, such as opening the monthly review, can be counted too. It needs a decision on retention and on how children's activity is recorded, so it waits until the queries show a need.
+
 ## 4. Suggested order
 
-1. **Quick and high impact:** #1 reliable emails (needs you), #15 automatic tests, #16 backups (needs you), #17 two dashboard settings (needs you).
+1. **Quick and high impact:** #22 run the KPI queries weekly (nothing to build), #1 reliable emails (needs you), #15 automatic tests, #16 backups (needs you), #17 two dashboard settings (needs you).
 2. **Medium effort:** #7 automatic monthly fees, #8 budgets from history, #13 data export, #14 account management, #4 live updates, and the guide from #6.
 3. **Bigger bets:** #5 email reminders and summary (reuses #1), #9 receipt reading, #11 Vietnamese, #10 offline entry, and the real fix for #6.
 
@@ -166,9 +169,79 @@ Plan → Bills now shows which bill is next.
 | Username sign-in | Kept, with the email lookup exposure | Convenient, and fine for a private family app | Before opening the app to strangers (#19) |
 | Bills | Monthly fees count as everyday spending, the rest are kept apart | One big payment should not wreck a month | A parent wants them counted too |
 | Notifications | In-app badges now, email later | Email needs infrastructure and an email provider | #1 is done |
+| KPIs | First-party and family-level; north star is weekly engaged families; targets are provisional | Privacy for a family and children's app, and only a few families so far | There are enough families for the percentages to mean something |
+| KPI queries | Run by hand in the SQL editor, never stored as views or functions | They read across all families, and the public schema is exposed through the API | A real admin area exists |
 | Checklist and badge memory | On the device, not in the family's data | No new database tables needed | A family wants it shared between phones |
 
-## 7. Keeping this file honest
+## 7. Measuring success (KPIs)
+
+How we will know the app is doing its two jobs: **helping a family control spending** and **teaching kids about money**. Everything here is provisional. With one family using the app today, treat the numbers as a conversation starter, not a score. The queries that produce them are in [kpi-queries.sql](kpi-queries.sql) (read-only, run by hand in the Supabase SQL editor).
+
+### North star
+
+**Weekly engaged families**: families in which at least two different members did something in the app that week (logged an expense, asked for a purchase, moved jar money, or put money into a goal). Two people, not one, because the product is for sharing; a week, because the habit it builds is weekly.
+
+### The metrics
+
+Data today: ✅ the database already holds it, 🟡 partly, 🔴 needs new tracking (see "Gaps" below). Targets are first guesses to revisit after a few months of real use.
+
+| Group | Metric | Why it matters | Data | Provisional target |
+|---|---|---|---|---|
+| **Onboarding** | Activation: at least 3 expenses and 2 members within 7 days of creating the family | The first week decides whether it sticks | ✅ | 60% |
+| | Median time from creating the family to the first expense | A long wait means the first screen is confusing | ✅ | Under 1 day |
+| | Sign-up funnel: signed up, confirmed email, reached a family | Shows where people give up, and whether email delivery (#1) is the culprit | ✅ | 80% reach a family |
+| | Failed invite-code attempts per person who got in | Join problems were the first real bug report | ✅ | Falling |
+| **Engagement** | Weekly engaged families (north star) | See above | ✅ | Rising |
+| | Logging consistency: weeks in the last 8 with at least 3 expenses | Tracking only works as a habit | ✅ | 4 or more of 8 |
+| | Shared use: families where two or more people logged in the last 30 days | Shared use is the point | ✅ | 70% |
+| | Feature adoption: tags, receipts, import, bills, goals, allowance | Shows which features earn their place | ✅ | Track only |
+| **Kids' learning** | Child participation: children active in a week, out of all children | Kids are the second job | ✅ | 60% |
+| | Voluntary saving: share of jar money a child moved into Save or Give | The clearest sign of learning | ✅ | Rising |
+| | Request answer time and share answered within 24 hours | A slow answer teaches nothing | ✅ | Median under 12 hours |
+| | Goals reached | Saving with a purpose | ✅ | Track only |
+| **Spending control** | Budgeted categories within budget this month | The adult outcome | 🟡 (today's budgets only, no history) | Improving over months |
+| | Bills paid on or before the due date | Late fees are avoidable | ✅ | 95% |
+| | Month over month change in "Other" and uncategorised spending | Honest categories make the review useful | ✅ | Falling |
+| | Monthly review opened | The family-meeting moment | 🔴 | Once a month |
+| **Retention** | Families still active in week 4, and in month 3 | Whether it became a habit | ✅ | 50% in week 4 |
+| | Families at risk: were active, quiet for 14 days | A list to reach out to, or to trigger a reminder (#5) | ✅ | Track only |
+| **Health** | Share of expenses edited after saving | A high number means entry is error-prone | ✅ | Under 10% |
+| | Receipt storage used | Free storage allowance runs out | ✅ | Watch |
+| | Errors per week | Problems found before families report them | 🔴 (needs #18) | Near zero |
+
+### Which roadmap item moves which number
+
+| Item | Moves |
+|---|---|
+| #1 Reliable emails | Sign-up funnel, time to first expense |
+| #2 Checklist (done) | Activation, time to first expense |
+| #3 Badges (done) | Request answer time |
+| #4 Live updates, #5 Email reminders | Request answer time, logging consistency, retention, families at risk |
+| #6 Help for kids without email | Child participation |
+| #7 Automatic monthly fees | Logging consistency, budget adherence |
+| #8 Budgets from history | Budgets within budget, adoption |
+| #13 Data export | Retention (trust) |
+
+### Gaps in what we can measure
+
+* **The database records changes, not visits.** Looking at the Home screen or opening the monthly review leaves no trace. Two metrics (monthly review opened, anyone who only looks) cannot be measured until the app records usage events. That is the second half of #22.
+* **No history of budgets or deleted rows.** "Within budget" uses today's budgets. Deleting an expense removes it entirely, so mistakes fixed by deleting are invisible.
+* **Very small sample.** Until several families use the app, read the counts and each family's story, not the percentages.
+
+### Principles for measuring
+
+* **First-party only.** Counts come from our own database. No advertising or analytics service sees any family's data.
+* **Family level, never amounts or names.** Every query returns counts per family or per week. None returns a name, email address or euro amount.
+* **Children's data gets extra care.** Keep child-level numbers to counts (active or not), and do not add behaviour tracking of individual children.
+* **Keep the queries private.** They read across all families. Save them in the SQL editor; do not turn them into views or functions in the `public` schema, which Supabase exposes through its API.
+
+### Cadence
+
+* **Weekly (about 15 minutes):** north star, activation, sign-up funnel, join friction, request answer time.
+* **Monthly:** the rest, then pick one number to improve next month and write the choice in the decisions log.
+* **Before any release that changes onboarding:** note activation and time to first expense, then compare a few weeks later.
+
+## 8. Keeping this file honest
 
 * Change a status here in the same change that does the work.
 * Add a line to the decisions log when something is decided, including "not now".
