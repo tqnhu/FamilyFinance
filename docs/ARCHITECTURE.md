@@ -366,6 +366,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 | 12a | See where the money goes: shares by category for a month or a year, compared with the previous month, a flow diagram on wide screens | parent | Review → Breakdown | `expenses`, `year_summary` |
 | 13 | Track yearly, half-yearly, quarterly and monthly bills; mark paid; see which are coming up (highlighted by urgency); get reminders | parent | Plan → Bills, Home | `bills`, `mark_bill_paid`, `unmark_bill_paid` |
 | 14 | Import a bank CSV with suggested categories; undo an import; mark rows as annual fees | parent | Plan → Import | `expenses` (batched) |
+| 14c | Tidy up Other: move past expenses out of Other with a preview, then undo | parent | Plan → Rules | `expenses` (grouped updates) |
 | 14b | Get a category suggested (with the reason) while typing an expense and in the bank import | everyone (import: parent) | expense form, Plan → Import | `expenses` (history) |
 | 14a | Mark any expense as an annual fee so it is not counted as monthly spending (and turn it off again) | everyone, own rows (parents: any) | expense form, Plan → Import | `expenses.annual_fee` |
 | 15 | Give a child a weekly allowance split into Spend, Save, Give, with an optional savings match | parent | Jars | `set_allowance`, `settle_allowance` |
@@ -379,7 +380,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `015` in order (each is safe to run once).
 * **Tests:** 394 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 235 unit tests (`app/src/lib`), and about 560 browser checks against a stubbed backend (`app/e2e`).
+  storage), 240 unit tests (`app/src/lib`), and about 590 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits

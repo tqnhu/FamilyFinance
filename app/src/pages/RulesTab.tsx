@@ -8,6 +8,7 @@ import { useTags } from '../lib/tags'
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
 import TagPicker from '../components/TagPicker'
+import TidyUp from './TidyUp'
 
 const KIND_LABEL: Record<string, string> = { groceries: 'Groceries', 'eating out': 'Eating out', transport: 'Transport', health: 'Health', fun: 'Fun and leisure', 'home & bills': 'Home and bills', kids: 'Kids' }
 
@@ -26,6 +27,7 @@ export default function RulesTab() {
   const [recent, setRecent] = useState<{ category_id: string | null }[] | null>(null)
   const [editing, setEditing] = useState<Rule | 'new' | null>(null)
   const [msg, setMsg] = useState('')
+  const [tidy, setTidy] = useState(false)
 
   useEffect(() => {
     void supabase.from('categories').select('*').order('name').then(r => setCats((r.data ?? []) as Category[]))
@@ -46,6 +48,7 @@ export default function RulesTab() {
   async function dismiss(l: Learned) { setMsg(await actions.add({ pattern: l.pattern, min_cents: null, max_cents: null, category_id: l.categoryId, tag_id: null, annual_fee: false }, 'dismissed') ?? '') }
   async function toggle(r: Rule) { setMsg(await actions.change(r.id, { status: r.status === 'on' ? 'off' : 'on' }) ?? '') }
 
+  if (tidy) return <TidyUp onBack={() => { setTidy(false); void reload() }} />
   return (
     <>
       <section className="card">
@@ -54,6 +57,7 @@ export default function RulesTab() {
         {recent !== null && other && (
           <p>{recent.length === 0 ? 'No expenses in the last 30 days.' : <><strong>{inOther} of {recent.length}</strong> expenses in the last 30 days are in Other{recent.length ? ` (${Math.round(((inOther ?? 0) / recent.length) * 100)}%)` : ''}. The fewer, the clearer the Breakdown.</>}</p>
         )}
+        {other ? <button onClick={() => setTidy(true)}>Tidy up Other…</button> : null}
         {msg && <p className="error" role="alert">{msg}</p>}
       </section>
 

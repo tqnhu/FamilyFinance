@@ -215,3 +215,9 @@ label.rule-switch { display:flex; align-items:center; gap:8px; margin:0; min-hei
 .rule-legend { text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin:8px 0 2px }
 details summary { cursor:pointer; min-height:44px; display:flex; flex-direction:column; justify-content:center } button.link.danger { color:var(--bad) }
 .suggest.remember .btn-row { width:100%; margin:4px 0 0 } .suggest.remember .btn-row button { flex:1 }
+
+/* Tidy up Other */
+h2.tidy-title { margin:4px 0 8px; font-size:1.3rem }
+label.tidy-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:start; padding:12px 0; border-top:1px solid var(--line); margin:0; color:var(--fg) } label.tidy-row.off { opacity:.55 }
+label.tidy-row input { width:22px; height:22px; margin:2px 0 0; accent-color:var(--brand) }
+.tidy-main { display:flex; flex-direction:column; min-width:0 } .tidy-to { display:flex; flex-direction:column; align-items:flex-end; gap:4px; text-align:right } .tidy-to .chip-label { margin-right:0 }

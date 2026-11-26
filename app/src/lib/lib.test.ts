@@ -6,6 +6,7 @@ import type { Category, Expense } from './types'
 import { looksAnnual } from './csv'
 import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES, learnedSuggestions, normalizeText, patternFromNote, ruleMatches, type Rule } from './classify'
 import { checkRule } from './rules'
+import { applyBatches, tidyCandidates, undoBatches } from './tidy'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
 import { flowLayout } from './flow'
 
@@ -814,5 +815,47 @@ describe('family rules', () => {
     expect(ok).toEqual({ pattern: 'sportclub', min_cents: null, max_cents: 12050, category_id: 'f', tag_id: null, annual_fee: true })
     for (const bad of [{ pattern: 'a' }, { pattern: 'x'.repeat(61) }, { min: 'abc' }, { max: '-1' }, { min: '50', max: '10' }, { category: '' }])
       expect(typeof checkRule({ pattern: 'sportclub', min: '', max: '', category: 'f', tag: '', annual: false, ...bad }, parse)).toBe('string')
+  })
+})
+
+describe('tidy up Other', () => {
+  const C = (id: string, name: string): Category => ({ id, name, emoji: '•', budget_cents: 0, archived: false })
+  const cats = [C('g', 'Groceries'), C('e', 'Eating out'), C('f', 'Fun'), C('o', 'Other')]
+  const x = (id: string, note: string, o: Record<string, unknown> = {}) => ({ id, note, amount_cents: 1000, spent_on: '2026-11-0' + id.slice(-1), category_id: 'o', tag_id: null, annual_fee: false, ...o })
+  const rule = (pattern: string, category_id: string, o: Partial<Rule> = {}): Rule => ({ id: pattern, pattern, min_cents: null, max_cents: null, category_id, tag_id: null, annual_fee: false, status: 'on', ...o })
+  const none = new Map()
+
+  it('finds the expenses in Other that something can place, newest first, and counts the rest', () => {
+    const r = tidyCandidates([x('a1', 'Lidl Berlin'), x('a3', 'Netflix.com'), x('a2', 'Qwerty Holdings'), x('a4', '', {}), x('b5', 'Lidl', { category_id: 'g' })], cats, 'o', none, [])
+    expect(r.rows.map(c => [c.id, c.categoryId, c.source])).toEqual([['a3', 'f', 'keyword'], ['a1', 'g', 'keyword']])
+    expect(r.none).toBe(2) // an unknown shop and an empty note; the one already in Groceries is not looked at
+  })
+  it('never suggests Other, and what was filed in Other teaches nothing', () => {
+    const h = buildHistory([...Array(4)].map(() => ({ note: 'Zeta Corner', category_id: 'o' })))
+    expect(tidyCandidates([x('a1', 'Zeta Corner')], cats, 'o', h, [rule('zeta corner', 'o')]).rows).toEqual([])
+  })
+  it('uses the family rules, with their tag and annual-fee flag, but never overwrites a tag already there', () => {
+    const rules = [rule('sportclub', 'f', { tag_id: 'tag1', annual_fee: true })]
+    const r = tidyCandidates([x('a1', 'Sportclub'), x('a2', 'Sportclub', { tag_id: 'mine' }), x('a3', 'Sportclub', { annual_fee: true })], cats, 'o', none, rules).rows
+    const by = Object.fromEntries(r.map(c => [c.id, c]))
+    expect(by.a1).toMatchObject({ categoryId: 'f', tagId: 'tag1', annualFee: true, source: 'rule' })
+    expect(by.a2.tagId).toBeNull(); expect(by.a3.annualFee).toBe(false)
+  })
+  it('groups the changes so a request moves many rows, and undo restores each one exactly', () => {
+    const rules = [rule('sportclub', 'f', { tag_id: 'tag1', annual_fee: true })]
+    const rows = tidyCandidates([x('a1', 'Lidl'), x('a2', 'Lidl Berlin'), x('a3', 'Sportclub'), x('a4', 'Sportclub', { tag_id: 'mine' })], cats, 'o', none, rules).rows
+    const go = applyBatches(rows)
+    expect(go).toHaveLength(3)
+    expect(go.find(b => b.patch.category_id === 'g')).toEqual({ patch: { category_id: 'g' }, ids: ['a2', 'a1'] })
+    expect(go.find(b => b.ids.includes('a3'))!.patch).toEqual({ category_id: 'f', tag_id: 'tag1', annual_fee: true })
+    expect(go.find(b => b.ids.includes('a4'))!.patch).toEqual({ category_id: 'f', annual_fee: true }) // keeps their own tag
+    const back = undoBatches(rows)
+    expect(back.find(b => b.ids.includes('a3'))!.patch).toEqual({ category_id: 'o', tag_id: null, annual_fee: false })
+    expect(back.find(b => b.ids.includes('a4'))!.patch).toEqual({ category_id: 'o', annual_fee: false }) // never touches the tag it did not set
+    expect(back.flatMap(b => b.ids).sort()).toEqual(['a1', 'a2', 'a3', 'a4'])
+  })
+  it('keeps the confidence, so only the sure ones can be ticked to start with', () => {
+    const h = buildHistory([{ note: 'Kramer Corner', category_id: 'e' }, { note: 'Kramer Corner', category_id: 'e' }])
+    expect(tidyCandidates([x('a1', 'Kramer Corner')], cats, 'o', h, []).rows[0]).toMatchObject({ categoryId: 'e', confidence: 'medium', source: 'history' })
   })
 })
