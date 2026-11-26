@@ -17,3 +17,6 @@ export const today = () => new Date().toLocaleDateString('sv')
 const whole = new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 })
 /** Whole euros, for overviews where cents are noise. */
 export const euroWhole = (cents: number) => whole.format(cents / 100)
+
+/** Whole euros when the cents are zero or the amount is 100 euro or more: €720 and €80 in a list, but €4.50 for a coffee. */
+export const euroTidy = (cents: number) => (Math.abs(cents) >= 10000 || cents % 100 === 0 ? euroWhole(cents) : euro(cents))

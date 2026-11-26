@@ -5,6 +5,7 @@ import { isSeparateBill } from '../lib/expense'
 import { yearModel, type SummaryRow, type YearModel } from '../lib/year'
 import { CategoryBars, MonthlyChart } from '../components/charts'
 import TagsView from './TagsView'
+import BreakdownTab from './Breakdown'
 import CategoryDetail from './CategoryDetail'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth'
@@ -98,15 +99,16 @@ function MonthReview() {
 }
 
 function ReviewTabs() {
-  const [tab, setTab] = useState<'month' | 'year' | 'tags'>('month')
+  const [tab, setTab] = useState<'month' | 'year' | 'breakdown' | 'tags'>('month')
   return (
     <>
-      <div className="seg" role="tablist">
+      <div className="seg four" role="tablist">
         <button role="tab" aria-selected={tab === 'month'} className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>This month</button>
         <button role="tab" aria-selected={tab === 'year'} className={tab === 'year' ? 'on' : ''} onClick={() => setTab('year')}>Year</button>
+        <button role="tab" aria-selected={tab === 'breakdown'} className={tab === 'breakdown' ? 'on' : ''} onClick={() => setTab('breakdown')}>Breakdown</button>
         <button role="tab" aria-selected={tab === 'tags'} className={tab === 'tags' ? 'on' : ''} onClick={() => setTab('tags')}>Tags</button>
       </div>
-      {tab === 'month' ? <MonthReview /> : tab === 'year' ? <YearView /> : <TagsView />}
+      {tab === 'month' ? <MonthReview /> : tab === 'year' ? <YearView /> : tab === 'breakdown' ? <BreakdownTab /> : <TagsView />}
     </>
   )
 }

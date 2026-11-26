@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { monthStart, nextMonthStart, parseEuro } from './money'
+import { euroTidy, monthStart, nextMonthStart, parseEuro } from './money'
 import { estimate, neededPerWeek } from './goals'
 import { review } from './review'
 import type { Category, Expense } from './types'
+import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
+import { flowLayout } from './flow'
 
 describe('parseEuro', () => {
   it('accepts dot and comma decimals', () => { expect(parseEuro('12.5')).toBe(1250); expect(parseEuro('12,50')).toBe(1250) })
@@ -533,5 +535,128 @@ describe('coming up', () => {
     const dues = comingUp([bill('Monthly', 1, 5, { times_per_year: 12, created_at: '2025-01-01T00:00:00Z' }), ...all.slice(0, 2)], [], today)
     expect(dueBillCount(dues)).toBe(3)
     expect(dueBillCount([{ bill: all[0] }, { bill: all[0] }, { bill: all[1] }])).toBe(2)
+  })
+})
+
+describe('breakdown (where the money goes)', () => {
+  const cat = (id: string, name: string): Category => ({ id, name, emoji: '•', budget_cents: 0, archived: false })
+  const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+  const cats = names.map(n => cat(n.toLowerCase(), n))
+  const x = (category_id: string | null, amount_cents: number, o: Record<string, unknown> = {}) => ({ category_id, amount_cents, tag_id: null, bill_id: null, monthly_fee: false, spent_on: '2026-11-05', ...o })
+
+  it('shares as tenths always add up to exactly 100.0', () => {
+    expect(tenths([1, 1, 1]).reduce((a, b) => a + b, 0)).toBe(1000)
+    expect(tenths([1, 1, 1])).toEqual([334, 333, 333]) // the leftover tenth goes to the first of equal remainders
+    expect(tenths([720, 480, 410, 360, 290, 580]).reduce((a, b) => a + b, 0)).toBe(1000)
+    expect(tenths([0, 0])).toEqual([0, 0]); expect(tenths([])).toEqual([])
+    expect(tenths([5])).toEqual([1000])
+  })
+
+  it('splits spending by category, biggest first, with shares that add up to 100', () => {
+    const b = breakdown([x('a', 72000), x('b', 48000), x('c', 41000), x('d', 36000), x('e', 29000), x('f', 27000), x('g', 19000), x(null, 12000)], null, cats, [])
+    expect(b.total).toBe(284000)
+    expect(b.slices.map(s => s.name)).toEqual(['A', 'B', 'C', 'D', 'E', '3 more categories']) // 8 sources: top 5, then a group of the other 3
+    expect(b.slices[0]).toMatchObject({ cents: 72000, pct: 25.4, group: false, categoryId: 'a' })
+    expect(b.slices[5]).toMatchObject({ cents: 58000, group: true, categoryId: null, keys: ['f', 'g', 'none'] })
+    expect(b.slices[5].details.map(d => d.name)).toEqual(['F', 'G', 'Uncategorised'])
+    expect(Math.round(b.slices.reduce((s, v) => s + v.pct, 0) * 10)).toBe(1000)
+  })
+
+  it('does not hide a single category inside a group', () => {
+    const six = breakdown(names.slice(0, 6).map((n, i) => x(n.toLowerCase(), (6 - i) * 1000)), null, cats, [])
+    expect(six.slices).toHaveLength(6); expect(six.slices.every(s => !s.group)).toBe(true)
+    expect(new Set(six.slices.map(s => s.color)).size).toBe(6) // the sixth gets the grey, not a repeated colour
+    const seven = breakdown(names.map((n, i) => x(n.toLowerCase(), (7 - i) * 1000)), null, cats, [])
+    expect(seven.slices).toHaveLength(6); expect(seven.slices[5].name).toBe('2 more categories')
+  })
+
+  it('counts monthly fees but keeps yearly bill payments apart', () => {
+    const b = breakdown([x('a', 1000), x('a', 500, { bill_id: 'b1', monthly_fee: true }), x('a', 60000, { bill_id: 'b2' })], null, cats, [])
+    expect(b.total).toBe(1500); expect(b.separateBills).toBe(60000)
+    expect(b.slices).toHaveLength(1); expect(b.slices[0].pct).toBe(100)
+  })
+
+  it('compares each slice, and the group, with the other period', () => {
+    const cur = [x('a', 5000), x('b', 3000), x('c', 100), x('d', 100), x('e', 100), x('f', 100), x('g', 100)]
+    const prev = [x('a', 2000), x('b', 4000), x('f', 50), x('g', 300)]
+    const b = breakdown(cur, prev, cats, [])
+    expect(b.prevTotal).toBe(6350); expect(b.delta).toBe(8500 - 6350)
+    expect(b.slices[0]).toMatchObject({ name: 'A', prev: 2000, delta: 3000 }); expect(b.slices[1].delta).toBe(-1000)
+    const more = b.slices[b.slices.length - 1]
+    expect(more.group).toBe(true); expect(more.delta).toBe(more.cents - more.prev!)
+    expect(breakdown(cur, null, cats, []).slices.every(s => s.delta === null && s.prev === null)).toBe(true)
+  })
+
+  it('lists the tags inside a category, with "No tag" last and shares of that category', () => {
+    const tags = [{ id: 't1', name: 'Weekly shop' }, { id: 't2', name: 'Party' }]
+    const b = breakdown([x('a', 54000, { tag_id: 't1' }), x('a', 10000, { tag_id: 't2' }), x('a', 8000)], null, cats, tags)
+    expect(b.slices[0].details.map(d => d.name)).toEqual(['Weekly shop', 'Party', 'No tag'])
+    expect(b.slices[0].details.map(d => d.pct)).toEqual([75, 13.9, 11.1])
+    expect(b.slices[0].details.every(d => d.width === Math.round(d.pct))).toBe(true)
+    const noTagFirstBig = breakdown([x('a', 90000), x('a', 1000, { tag_id: 't2' })], null, cats, tags)
+    expect(noTagFirstBig.slices[0].details.map(d => d.name)).toEqual(['Party', 'No tag']) // even when it is the biggest
+  })
+
+  it('handles an empty month and categories with nothing spent', () => {
+    const b = breakdown([], [x('a', 100)], cats, [])
+    expect(b.total).toBe(0); expect(b.slices).toEqual([]); expect(b.prevTotal).toBe(100)
+  })
+
+  it('reads a year from the database rows: no bills, a mix per month, and a group when there are many categories', () => {
+    const rows = [
+      { month: 1, category_id: 'a', is_bill: false, total_cents: 3000 }, { month: 1, category_id: 'b', is_bill: false, total_cents: 1000 },
+      { month: 2, category_id: 'a', is_bill: false, total_cents: 1000 }, { month: 2, category_id: 'b', is_bill: false, total_cents: 3000 },
+      { month: 2, category_id: 'a', is_bill: true, total_cents: 99999 },
+    ]
+    const y = yearBreakdown(rows, cats)
+    expect(y.total).toBe(8000); expect(y.separateBills).toBe(99999)
+    expect(y.slices.map(s => [s.name, s.cents, s.pct])).toEqual([['A', 4000, 50], ['B', 4000, 50]])
+    expect(y.mix).toHaveLength(12); expect(y.mix[0]).toEqual({ month: 1, cents: [3000, 1000] }); expect(y.mix[1].cents).toEqual([1000, 3000]); expect(y.mix[5].cents).toEqual([0, 0])
+    const many = yearBreakdown(names.map((n, i) => ({ month: 3, category_id: n.toLowerCase(), is_bill: false, total_cents: 1000 * (7 - i) })), cats)
+    expect(many.slices).toHaveLength(6); expect(many.mix[2].cents.reduce((a, b) => a + b, 0)).toBe(28000)
+  })
+})
+
+describe('comparison periods for the breakdown', () => {
+  it('compares the month being lived in with the same days of last month', () => {
+    const w = monthWindows('2026-11', new Date(2026, 10, 26))
+    expect(w).toMatchObject({ current: true, lastDay: 26, start: '2026-11-01', end: '2026-12-01', prevStart: '2026-10-01', prevEnd: '2026-10-27' })
+  })
+  it('compares a finished month with the whole month before', () => {
+    const w = monthWindows('2026-09', new Date(2026, 10, 26))
+    expect(w).toMatchObject({ current: false, lastDay: 30, start: '2026-09-01', end: '2026-10-01', prevStart: '2026-08-01', prevEnd: '2026-09-01' })
+  })
+  it('does not run past the end of a shorter month before', () => {
+    expect(monthWindows('2026-03', new Date(2026, 2, 31)).prevEnd).toBe('2026-03-01') // February has 28 days: all of it
+    expect(monthWindows('2026-01', new Date(2026, 0, 15))).toMatchObject({ prevStart: '2025-12-01', prevEnd: '2025-12-16' })
+  })
+  it('splits rows into the two periods', () => {
+    const rows = [{ spent_on: '2026-10-05' }, { spent_on: '2026-10-26' }, { spent_on: '2026-10-27' }, { spent_on: '2026-11-03' }, { spent_on: '2026-11-26' }, { spent_on: '2026-09-30' }]
+    const { cur, prev } = splitForComparison(rows, '2026-11', new Date(2026, 10, 26))
+    expect(cur.map(r => r.spent_on)).toEqual(['2026-11-03', '2026-11-26'])
+    expect(prev.map(r => r.spent_on)).toEqual(['2026-10-05', '2026-10-26'])
+  })
+})
+
+describe('flow diagram layout', () => {
+  const items = [{ id: 'a', name: 'A', color: '#000', cents: 7000, pct: 70 }, { id: 'b', name: 'B', color: '#111', cents: 3000, pct: 30 }, { id: 'z', name: 'Z', color: '#222', cents: 0, pct: 0 }]
+  const f = flowLayout(items, { bodyHeight: 100, gap: 10, pad: 5 })
+  it('draws block heights to scale and skips empty ones', () => {
+    expect(f.nodes.map(n => n.id)).toEqual(['a', 'b']); expect(f.nodes[0].h).toBe(70); expect(f.nodes[1].h).toBe(30)
+    expect(f.left.h).toBe(100); expect(f.ribbons).toHaveLength(2)
+  })
+  it('leaves a gap between blocks and fits them in the picture', () => {
+    expect(f.nodes[1].y - (f.nodes[0].y + f.nodes[0].h)).toBe(10)
+    const last = f.nodes[1]; expect(last.y + last.h + 5).toBeLessThanOrEqual(f.height)
+    expect(f.height).toBe(100 + 10 + 10)
+  })
+  it('does not break with nothing to draw', () => { const e = flowLayout([]); expect(e.nodes).toEqual([]); expect(e.ribbons).toEqual([]) })
+})
+
+describe('euroTidy', () => {
+  it('drops zero cents and keeps real ones', () => {
+    expect(euroTidy(72000)).toBe('€720'); expect(euroTidy(8000)).toBe('€80'); expect(euroTidy(450)).toBe('€4.50'); expect(euroTidy(0)).toBe('€0')
+    expect(euroTidy(12345)).toBe('€123') // from 100 euro up, cents are noise
+    expect(euroTidy(-3500)).toBe('-€35')
   })
 })

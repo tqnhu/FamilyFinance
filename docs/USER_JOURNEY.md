@@ -113,9 +113,10 @@ that exists today, and how we will know it worked.
 * **Steps and screens.**
   1. Review → This month: compare with last month, starting with wins ("we spent 42% less on Eating out"), then comfortably-within-budget categories, then "worth a look".
   2. Tap a category on Home (or hover for its three latest) to see exactly what is behind a number.
-  3. Review → Tags: see what a trip or a project cost in total.
-  4. Goals: see progress to a shared goal, the estimated date, and what saving a little more would change.
-  5. The review ends with a conversation prompt for the family.
+  3. Review → Breakdown: see where the money went, as shares of the month, and how each part moved since last month.
+  4. Review → Tags: see what a trip or a project cost in total.
+  5. Goals: see progress to a shared goal, the estimated date, and what saving a little more would change.
+  6. The review ends with a conversation prompt for the family.
 * **Feeling.** The intended high point: proud, informed, not blamed.
 * **Friction today.** Nothing starts the meeting. There is no monthly summary sent to the family, and the screen is built for one phone, not for a table of people.
 * **Success.** The Review page is opened once a month, and the family changes something (a budget, a habit or a goal) as a result.

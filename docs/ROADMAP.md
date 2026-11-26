@@ -52,6 +52,8 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 20 | Smaller JavaScript bundle and paging for long lists | 💡 Later | Low–medium | S and M | none |
 | 21 | Privacy policy and terms | 💡 Later | Required before opening to others | S (writing), possibly legal review | none |
 | 22 | Measure it: KPI queries, then first-party usage events | 🔜 Next | High (shows what to build next) | S for the queries (written), M for usage events | none |
+| 23 | Where the money goes: spending broken down by category, with shares | ✅ Done | High | M | none |
+| 24 | Income tracking (spending as a share of income, a savings slice) | 📋 Planned | Medium–high | M–L | A decision on how income is recorded |
 
 ## 2. Done in the latest release
 
@@ -89,6 +91,20 @@ Plan → Bills now shows which bill is next.
 * **The Plan tab badge now counts bills, not due dates**, so it agrees with the list (a monthly bill that is months behind counts once, not as "9+").
 * **Tests.** 10 new unit tests and 30 browser checks (ordering, level boundaries at 0, 7, 8, 30 and 31 days, marking paid from the list, the badge agreeing with the list, monthly bills, already-paid dates, accessibility).
 
+### #23 Where the money goes (Review → Breakdown) ✅
+
+A new **Breakdown** tab in Review (parents only) answers "where did the money go, and what share is that?".
+
+* **Month or year**, with a stepper. The month view is compared with the same days of the month before (a finished month with the whole of the one before). The comparison is **on by default** and can be switched off.
+* **One bar and a ranked list.** A single share bar shows every slice at once. The list under it gives each category's amount and percentage, and how it moved ("▲ €60 vs Oct"). The five biggest categories get their own row, the rest are grouped as "N more categories" (a single leftover category is never hidden inside a group). Shares are rounded so that they add up to exactly 100.0%.
+* **Tap a row to see inside it.** A category shows its tags with each tag's share of the category ("No tag" last), and a link to every expense in it (the existing category page). The group shows the categories inside it.
+* **Year view** adds the average per month and a 12-column chart of how the mix changed from month to month.
+* **Flow diagram.** On screens at least 600 px wide there is a List / Flow switch: all spending flowing into its categories, drawn to scale. Phones keep the list.
+* **Same rules as Home.** Monthly fees count as everyday spending; yearly and other non-monthly bills are never inside the shares and are reported in a note with a link to Plan.
+* **No database change.** Months read the expenses directly, the year reuses `year_summary`.
+* **Not included yet.** Spending is the whole (there is no income to compare with, see #24). The flow diagram stops at categories: tags are shown in the list. Months are read up to the usual 1,000-row limit (#20).
+* **Tests.** 16 new unit tests (rounding to 100, grouping, comparison windows, tags, year, flow geometry) and 52 browser checks.
+
 ## 3. The rest of the list
 
 ### A. Onboarding and retention
@@ -116,6 +132,8 @@ Plan → Bills now shows which bill is next.
 **#12 More than one tag per expense 💡.** Needs a link table. Tag totals would then overlap and no longer add up to total spending, so the reports need reworking.
 
 **#13 Data export 📋.** Download everything as CSV for trust and portability. Client-side, with paging for long histories.
+
+**#24 Income tracking 📋.** The breakdown shows shares of *spending*. Showing shares of *income* (and a Savings slice, as bank apps do) needs a way to record income: a new table, a screen to add or repeat it, and a decision on who may see it (a child should not see parents' income). Planned for later, after the breakdown has been used for a while.
 
 ### C. Account and family management
 
@@ -153,10 +171,10 @@ Plan → Bills now shows which bill is next.
 * **Kids' money.** Spend, Save and Give jars, weekly allowance, purchase requests with parent approval, an optional savings match, badges and streaks.
 * **Saving together.** Shared family goals with a time-to-goal estimate and a "what if" slider.
 * **Planning.** Budget management (add, rename, archive categories), a bills tracker (yearly, half-yearly, quarterly, monthly) with reminders, monthly fees counted as everyday spending, a monthly review with a family-meeting prompt, a yearly overview with charts.
-* **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages.
+* **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages, and a Breakdown of where the money goes with shares and a flow diagram.
 * **Accounts and family.** Forgot-password, an account menu with My profile and Family settings (name, members, invite codes with copy and a ready-made invitation, replacing leaked codes), forgiving invite codes.
 * **Security.** Row-level security on every table, column-level permissions, money rules inside the database, signed-out visitors limited to one function, checked against Supabase's security advisor.
-* **Quality.** 359 database checks, 189 unit tests and about 400 browser checks, plus architecture and user-journey documents.
+* **Quality.** 359 database checks, 205 unit tests and about 450 browser checks, plus architecture and user-journey documents.
 
 ## 6. Decisions log
 
@@ -168,6 +186,8 @@ Plan → Bills now shows which bill is next.
 | Kids' sign-up | Needs a real email address, a parent may help | Username-only sign-up was not wanted | #6 |
 | Username sign-in | Kept, with the email lookup exposure | Convenient, and fine for a private family app | Before opening the app to strangers (#19) |
 | Bills | Monthly fees count as everyday spending, the rest are kept apart | One big payment should not wreck a month | A parent wants them counted too |
+| Breakdown tab | Named "Breakdown"; five biggest categories, the rest grouped; comparison with the previous month on by default | Reads best at phone width; the comparison answers "is this normal?" straight away | Families ask for other names or more slices |
+| Breakdown scope | Spending only; income is planned later (#24) | The app has no income today | A parent asks to see spending against income |
 | Notifications | In-app badges now, email later | Email needs infrastructure and an email provider | #1 is done |
 | KPIs | First-party and family-level; north star is weekly engaged families; targets are provisional | Privacy for a family and children's app, and only a few families so far | There are enough families for the percentages to mean something |
 | KPI queries | Run by hand in the SQL editor, never stored as views or functions | They read across all families, and the public schema is exposed through the API | A real admin area exists |

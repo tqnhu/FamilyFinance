@@ -167,3 +167,28 @@ button.danger-btn { color:var(--bad); border-color:var(--bad); background:none }
 .row.item.coming.upcoming, .row.item.next.upcoming { background:color-mix(in srgb, var(--brand) 9%, transparent) }
 .row.item.next { border-radius:10px; padding-left:8px; padding-right:8px } .next-date { font-weight:700 } .bill-next { margin:2px 0 8px }
 .row.item.coming .right button, .row.item .right button { white-space:nowrap }
+
+/* Review → Breakdown: where the money goes */
+:root { --up:#8a4b00; --down:#0f766e }
+@media (prefers-color-scheme: dark) { :root { --up:#f0a53c; --down:#4fd1c5 } }
+.seg.small-seg { display:inline-flex; margin:0; padding:2px; border-radius:10px } .seg.small-seg button { flex:none; padding:8px 14px; font-size:.85rem; border-radius:8px }
+.seg.four button { font-size:.85rem; padding-left:2px; padding-right:2px }
+.bd-controls { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 12px; margin:0 0 8px }
+label.bd-compare { display:flex; align-items:center; gap:8px; margin:0; font-size:.85rem; color:var(--fg); min-height:44px }
+label.bd-compare input { width:40px; height:22px; margin:0; padding:0; accent-color:var(--brand) }
+.bd-bar { display:flex; gap:2px; height:36px; border-radius:8px; overflow:hidden; margin:10px 0 6px } .bd-bar > div { height:100%; min-width:3px }
+.bd-delta.up { color:var(--up) } .bd-delta.down { color:var(--down) } p.bd-delta { margin:2px 0 0; font-size:.9rem }
+.bd-apart { border-top:1px solid var(--line); padding-top:10px; margin-top:10px }
+.bd-item { border-top:1px solid var(--line) } .bd-item:first-of-type { border-top:none }
+button.bd-row, .bd-row.static { display:grid; grid-template-columns:12px minmax(0,1fr) auto 16px; gap:12px; align-items:center; width:100%; min-height:60px; padding:10px 0; background:none; border:0; border-radius:0; text-align:left; color:var(--fg) }
+.bd-row.static { grid-template-columns:12px minmax(0,1fr) auto }
+.bd-dot { width:12px; height:12px; border-radius:3px } .bd-main { display:flex; flex-direction:column; min-width:0 } .bd-name { font-weight:600; overflow-wrap:anywhere }
+.bd-nums { display:flex; flex-direction:column; align-items:flex-end; font-variant-numeric:tabular-nums } .bd-chev { color:var(--muted); text-align:center; line-height:1 }
+.bd-panel { background:var(--bg); border-radius:10px; padding:12px; margin:0 0 12px; display:flex; flex-direction:column; gap:12px }
+.bd-panel-title { font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:600 }
+.bd-detail { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:4px 12px; align-items:center; font-size:.9rem; font-variant-numeric:tabular-nums } .bd-share { min-width:44px; text-align:right }
+.bd-mini { grid-column:1 / -1; height:6px; border-radius:3px; background:var(--line); overflow:hidden } .bd-mini > div { height:100% }
+.bd-link { display:flex; align-items:center; min-height:36px; font-weight:600; font-size:.9rem; color:var(--brand) }
+.bd-mix { display:flex; gap:4px; height:140px; margin-top:6px } .bd-col { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; border-radius:3px; overflow:hidden }
+.bd-months { display:flex; gap:4px; font-size:.7rem; color:var(--muted); text-align:center; margin-top:4px } .bd-months span { flex:1 }
+svg.flow { width:100%; height:auto; display:block; margin-top:8px } .flow .flow-total { fill:var(--fg) } .flow-name { font-size:13px; font-weight:700; fill:var(--fg) } .flow-val { font-size:12px; fill:var(--fg) }
