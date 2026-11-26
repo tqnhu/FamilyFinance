@@ -56,6 +56,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 24 | Income tracking (spending as a share of income, a savings slice) | 📋 Planned | Medium–high | M–L | A decision on how income is recorded |
 | 25 | Annual fees from a bank import kept out of monthly spending | ✅ Done | High | S–M | none |
 | 26 | Automatic classification: rules plus learning from your own choices | ✅ Phases 1 to 3 done, phase 4 later | High (fewer "Other", faster entry and import) | M for phases 2 and 3, one new table | #25 (done) |
+| 27 | Review redesigned: Month and Year with a pie, budget hints, Goals in Year | ✅ Done | High | M | #23 (done) |
 
 ## 2. Done in the latest release
 
@@ -93,9 +94,20 @@ Plan → Bills now shows which bill is next.
 * **The Plan tab badge now counts bills, not due dates**, so it agrees with the list (a monthly bill that is months behind counts once, not as "9+").
 * **Tests.** 10 new unit tests and 30 browser checks (ordering, level boundaries at 0, 7, 8, 30 and 31 days, marking paid from the list, the badge agreeing with the list, monthly bills, already-paid dates, accessibility).
 
-### #23 Where the money goes (Review → Breakdown) ✅
+### #27 Review: Month and Year ✅ (replaces the Breakdown tab of #23)
 
-A new **Breakdown** tab in Review (parents only) answers "where did the money go, and what share is that?".
+Review now has three tabs, **Month**, **Year** and **Tags**.
+
+* **Month** opens on the current month; the arrows go back up to 24 months. It shows the total, the comparison with the month before (same days for the current month, the whole month for a finished one; on by default), the share chart, and the category list with tags and budget hints.
+* **Pie by default**, with a name and share on every slice (leader lines, labels kept apart), a **Bars | Pie** switch (and **Flow** on screens at least 600 px wide), remembered on the device.
+* **Budget hint** on each category that has a budget: a thin bar and a sentence ("€280 left of €1,000", "€120 left of €600, nearly used" from 80%, "€60 over its €300 budget"; "Ended €190 under its €1,000 budget" for a finished month). Words as well as colour. Budgets are today's budgets.
+* **Year** shows the total and tiles, **Where the money went** (pie or bars; Bars keeps the yearly budget marks), **Spending by month**, **How the mix changed** and **Goals** (always today's progress).
+* **Removed:** the Breakdown tab, the old "This month" review cards (Wins, Comfortably within budget, Worth a look), the "For your family meeting" card, and the Goals card on the month page (now in Year).
+* **Tests.** 17 unit tests for the pie geometry, the budget hint and the stored choice, and 71 browser checks.
+
+### #23 Where the money goes ✅ (now inside Month and Year, see #27)
+
+Shows where the money went and what share that is.
 
 * **Month or year**, with a stepper. The month view is compared with the same days of the month before (a finished month with the whole of the one before). The comparison is **on by default** and can be switched off.
 * **One bar and a ranked list.** A single share bar shows every slice at once. The list under it gives each category's amount and percentage, and how it moved ("▲ €60 vs Oct"). The five biggest categories get their own row, the rest are grouped as "N more categories" (a single leftover category is never hidden inside a group). Shares are rounded so that they add up to exactly 100.0%.
@@ -200,11 +212,11 @@ A new **Breakdown** tab in Review (parents only) answers "where did the money go
 * **Foundations.** Family accounts with parent and child roles, sign-in by email or username, euro expense entry, monthly budgets, a dashboard.
 * **Kids' money.** Spend, Save and Give jars, weekly allowance, purchase requests with parent approval, an optional savings match, badges and streaks.
 * **Saving together.** Shared family goals with a time-to-goal estimate and a "what if" slider.
-* **Planning.** Budget management (add, rename, archive categories), a bills tracker (yearly, half-yearly, quarterly, monthly) with reminders, monthly fees counted as everyday spending, a monthly review with a family-meeting prompt, a yearly overview with charts.
-* **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages, and a Breakdown of where the money goes with shares and a flow diagram.
+* **Planning.** Budget management (add, rename, archive categories), a bills tracker (yearly, half-yearly, quarterly, monthly) with reminders, monthly fees counted as everyday spending, a Month and a Year review with a pie of where the money went, budget hints and goals.
+* **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages, and where the money goes with shares as a pie, bars or a flow diagram.
 * **Accounts and family.** Forgot-password, an account menu with My profile and Family settings (name, members, invite codes with copy and a ready-made invitation, replacing leaked codes), forgiving invite codes.
 * **Security.** Row-level security on every table, column-level permissions, money rules inside the database, signed-out visitors limited to one function, checked against Supabase's security advisor.
-* **Quality.** 394 database checks, 240 unit tests and about 590 browser checks, plus architecture and user-journey documents.
+* **Quality.** 394 database checks, 251 unit tests and about 610 browser checks, plus architecture and user-journey documents.
 
 ## 6. Decisions log
 
@@ -216,7 +228,7 @@ A new **Breakdown** tab in Review (parents only) answers "where did the money go
 | Kids' sign-up | Needs a real email address, a parent may help | Username-only sign-up was not wanted | #6 |
 | Username sign-in | Kept, with the email lookup exposure | Convenient, and fine for a private family app | Before opening the app to strangers (#19) |
 | Bills | Monthly fees count as everyday spending, the rest are kept apart | One big payment should not wreck a month | A parent wants them counted too |
-| Breakdown tab | Named "Breakdown"; five biggest categories, the rest grouped; comparison with the previous month on by default | Reads best at phone width; the comparison answers "is this normal?" straight away | Families ask for other names or more slices |
+| Review layout | Three tabs (Month, Year, Tags); the shares are inside Month and Year; Pie is the default, remembered per device; five biggest categories, the rest grouped; comparison on by default; no review cards or family-meeting prompt | Reads best at phone width; the comparison answers "is this normal?" straight away | Families ask for other names or more slices |
 | Annual fees | A flag on any expense, kept apart like a yearly bill, still listed and editable | Simplest fix that also covers bank imports, with no new screens | Families want yearly bills on Plan to be created from an imported payment |
 | Classification | European starter list; children get suggestions; confident ones pre-selected, weaker ones offered | A pre-filled wrong category is caught by the label and reason shown beside it | Wrong pre-selections are reported often (raise the confidence bar) |
 | Breakdown scope | Spending only; income is planned later (#24) | The app has no income today | A parent asks to see spending against income |
@@ -254,7 +266,7 @@ Data today: ✅ the database already holds it, 🟡 partly, 🔴 needs new track
 | **Spending control** | Budgeted categories within budget this month | The adult outcome | 🟡 (today's budgets only, no history) | Improving over months |
 | | Bills paid on or before the due date | Late fees are avoidable | ✅ | 95% |
 | | Month over month change in "Other" and uncategorised spending | Honest categories make the review useful | ✅ | Falling |
-| | Monthly review opened | The family-meeting moment | 🔴 | Once a month |
+| | Monthly review opened | The monthly check-in moment | 🔴 | Once a month |
 | **Retention** | Families still active in week 4, and in month 3 | Whether it became a habit | ✅ | 50% in week 4 |
 | | Families at risk: were active, quiet for 14 days | A list to reach out to, or to trigger a reminder (#5) | ✅ | Track only |
 | **Health** | Share of expenses edited after saving | A high number means entry is error-prone | ✅ | Under 10% |

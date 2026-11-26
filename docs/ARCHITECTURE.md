@@ -322,7 +322,7 @@ sequenceDiagram
   D->>D: insert expense (category, tag, monthly_fee copied from the bill)
   D->>D: insert bill_payment
   D-->>A: expense id
-  Note over A,D: Monthly fees now count in Home, the month review and category pages.<br/>Yearly bills count in the Year view and tag totals.
+  Note over A,D: Monthly fees now count in Home, the Month tab and category pages.<br/>Yearly bills count in the Year view and tag totals.
 ```
 
 **Suggesting categories** (`lib/classify.ts`) runs in the browser. In order: (1) the family's own rules (`classification_rules`: text to look for, optional amount range, category, tag, annual-fee flag; the most specific rule wins; `off` and `dismissed` rules are skipped); (2) the family's own latest 1,000 categorised notes, turned into a word index and scored; (3) a built-in European shop list matched against the family's category names. It returns a category, a confidence (high = pre-selected, medium = offered), a one-line reason and, for a rule, its tag and annual-fee flag. It is used when adding an expense and in the bank import. A parent who changes a suggestion can choose Remember (one rule per shop), and Plan → Rules lists patterns the family keeps repeating so a parent can turn them into rules. Nothing is sent to a third party.
@@ -360,10 +360,9 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 | 7 | Set monthly budgets per category; add, rename, archive categories | parent | Plan → Budgets | `categories` |
 | 8 | See spending against budgets by month, with warnings from 80% | parent | Home | `expenses`, `categories` |
 | 9 | Hover a category for its 3 latest, click for all its expenses | everyone | Home → Review | `expenses` |
-| 10 | Compare this month with last month | parent | Review → This month | `expenses` |
-| 11 | See the year by month and by category | parent | Review → Year | `year_summary` |
+| 10 | See where a month's money went (pie or bars, flow on wide screens), compared with the month before, with each category's budget hint; browse earlier months | parent | Review → Month | `expenses`, `categories` |
+| 11 | See the year by month and by category (pie or bars), how the mix changed, and goal progress | parent | Review → Year | `year_summary`, `goals` |
 | 12 | Add up spending by tag for a month, a year or all time | parent | Review → Tags | `tag_totals`, `tag_months` |
-| 12a | See where the money goes: shares by category for a month or a year, compared with the previous month, a flow diagram on wide screens | parent | Review → Breakdown | `expenses`, `year_summary` |
 | 13 | Track yearly, half-yearly, quarterly and monthly bills; mark paid; see which are coming up (highlighted by urgency); get reminders | parent | Plan → Bills, Home | `bills`, `mark_bill_paid`, `unmark_bill_paid` |
 | 14 | Import a bank CSV with suggested categories; undo an import; mark rows as annual fees | parent | Plan → Import | `expenses` (batched) |
 | 14c | Tidy up Other: move past expenses out of Other with a preview, then undo | parent | Plan → Rules | `expenses` (grouped updates) |
@@ -380,7 +379,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `015` in order (each is safe to run once).
 * **Tests:** 394 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 240 unit tests (`app/src/lib`), and about 590 browser checks against a stubbed backend (`app/e2e`).
+  storage), 251 unit tests (`app/src/lib`), and about 610 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits
@@ -390,7 +389,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 * Anyone can turn a username into that person's email through `email_for_username` (the price of signing in with a username). Fine for a private family app, worth revisiting before opening it to strangers.
 * Request and response only: nothing updates live on another person's screen until they reload or act.
 * No notifications. Due bills and purchase requests are only visible when someone opens the app.
-* Reads of plain lists are capped by Supabase at about 1,000 rows per request (the monthly lists and the month review).
+* Reads of plain lists are capped by Supabase at about 1,000 rows per request (the monthly lists and the Month tab).
   The year and tag reports are not affected because the database adds them up.
 * One tag per expense. One family per account. Euro only. English only.
 * Monthly fees are recorded when a parent taps Mark paid, not automatically.

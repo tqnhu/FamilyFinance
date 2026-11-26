@@ -97,10 +97,10 @@ const expenses = [
 
   s = await open('/review', { expenses, bills }); pg = s.page
   const txt = await pg.locator('main').innerText()
-  ok(txt.includes('€62.99'), 'the month review total includes the monthly fee (€62.99)')
-  ok(txt.includes('19% more than last month') && txt.includes('€52.99'), 'compared with last month on the same basis (€52.99 -> +19%)')
-  ok(!txt.includes('605'), 'the yearly insurance is not in the month review')
-  ok(txt.includes('including monthly fees'), 'the page says monthly fees are included')
+  ok(txt.includes('€62.99'), 'the Month tab total includes the monthly fee (€62.99)')
+  ok(/▲ €10 more than \w+ so far/.test(txt), 'compared with last month on the same basis (€52.99 -> €62.99, €10 more)')
+  ok(!(await pg.locator('.card .big').first().innerText()).includes('605') && !(await pg.locator('.bd-nums b').allInnerTexts()).some(t => t.includes('605')) && txt.includes('kept apart'), 'the yearly insurance is not in the month total or its categories, only in the "kept apart" note')
+  ok(txt.includes('Monthly fees count as everyday spending'), 'the page says monthly fees are counted')
   await pg.screenshot({ path: `${S}/ui/mf-review.png`, fullPage: true })
   await pg.click('button[role=tab]:text-is("Year")'); await pg.waitForTimeout(600)
   ok((await pg.locator('main').innerText()).includes('Monthly fees (like a subscription) are counted as Everyday'), 'the Year view explains the same rule')

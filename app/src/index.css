@@ -221,3 +221,15 @@ h2.tidy-title { margin:4px 0 8px; font-size:1.3rem }
 label.tidy-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:start; padding:12px 0; border-top:1px solid var(--line); margin:0; color:var(--fg) } label.tidy-row.off { opacity:.55 }
 label.tidy-row input { width:22px; height:22px; margin:2px 0 0; accent-color:var(--brand) }
 .tidy-main { display:flex; flex-direction:column; min-width:0 } .tidy-to { display:flex; flex-direction:column; align-items:flex-end; gap:4px; text-align:right } .tidy-to .chip-label { margin-right:0 }
+
+/* Review: pie chart, budget hints */
+:root { --over:#b3261e } @media (prefers-color-scheme: dark) { :root { --over:#ff8f86 } }
+svg.pie { width:100%; max-width:340px; height:auto; display:block; margin:6px auto }
+.pie-slice { stroke:var(--card); stroke-width:2 } .pie-lead { fill:none; stroke:var(--muted); stroke-width:1 }
+.pie-name { font-size:12px; font-weight:700; fill:var(--fg) } .pie-pct { font-size:12px; fill:var(--muted) }
+.bd-budget { display:flex; flex-direction:column; gap:3px; margin-top:4px } .bd-budget-bar { display:block; height:6px; border-radius:3px; background:var(--line); overflow:hidden }
+.bd-budget-bar i { display:block; height:100%; background:var(--brand) } .bd-budget-bar i.near { background:var(--up) } .bd-budget-bar i.over { background:var(--over) }
+.bd-budget-text { color:var(--muted) } .bd-budget-text.near { color:var(--up); font-weight:600 } .bd-budget-text.over { color:var(--over); font-weight:600 }
+.goal-line { display:flex; justify-content:space-between; gap:12px; font-size:.95rem; margin-top:10px } .goal-line .bar { margin:4px 0 0 }
+
+.bd-controls.end { justify-content:flex-end }

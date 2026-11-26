@@ -111,12 +111,11 @@ that exists today, and how we will know it worked.
 
 * **Goal.** Turn the numbers into a conversation that is positive and shared.
 * **Steps and screens.**
-  1. Review → This month: compare with last month, starting with wins ("we spent 42% less on Eating out"), then comfortably-within-budget categories, then "worth a look".
+  1. Review → Month (opens on the current month; the arrows go back to earlier ones): the total, how it compares with the month before, and where the money went as a pie (or bars), with each category's budget hint ("€280 left of €1,000", "nearly used", "over").
   2. Tap a category on Home (or hover for its three latest) to see exactly what is behind a number.
-  3. Review → Breakdown: see where the money went, as shares of the month, and how each part moved since last month.
+  3. Review → Year: the year by month and by category, how the mix changed, and progress on the family's goals.
   4. Review → Tags: see what a trip or a project cost in total.
   5. Goals: see progress to a shared goal, the estimated date, and what saving a little more would change.
-  6. The review ends with a conversation prompt for the family.
 * **Feeling.** The intended high point: proud, informed, not blamed.
 * **Friction today.** Nothing starts the meeting. There is no monthly summary sent to the family, and the screen is built for one phone, not for a table of people.
 * **Success.** The Review page is opened once a month, and the family changes something (a budget, a habit or a goal) as a result.
@@ -221,7 +220,7 @@ journey
 | Partner joins in a week | A one-person tracker stops working | Parent code, forgiving matching | Medium: the person must send and receive the code |
 | Logging continues after day three | The habit | Manual only | **High: no reminders** |
 | First kid request answered | Makes the teaching real | Parent must open Jars | **High: no notifications** |
-| First monthly review opened together | Delivers the payoff | Review page, family-meeting prompt | Medium: nothing triggers it |
+| First monthly review opened together | Delivers the payoff | Review page (Month) | Medium: nothing triggers it |
 | Parent edits a child's entry | Trust | Marked "edited by" | Medium: a teen may feel watched |
 
 ## 7. What success looks like

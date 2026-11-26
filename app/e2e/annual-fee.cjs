@@ -123,8 +123,8 @@ const csv = [
   await s.b.close()
 
   s = await open('/review', { expenses: [x('club', 'f', 9900, d, { note: 'Sports club', annual_fee: true }), x('cinema', 'f', 1500, d, { note: 'cinema' })] }); pg = s.page
-  await pg.getByRole('tab', { name: 'Breakdown' }).click(); await pg.waitForSelector('.bd-row')
-  ok((await pg.locator('.card .big').first().innerText()) === '€15', 'the breakdown leaves it out of the shares')
+  await pg.waitForSelector('.bd-row')
+  ok((await pg.locator('.card .big').first().innerText()) === '€15', 'the Month tab leaves it out of the shares')
   ok((await pg.locator('.bd-apart').first().innerText()).includes('€99') && (await pg.locator('.bd-apart').first().innerText()).includes('annual fees'), 'and reports it as kept apart')
   ok(s.errors.length === 0, 'no page errors: ' + s.errors.join(' | '))
   await s.b.close()

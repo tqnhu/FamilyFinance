@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { euroTidy, monthStart, nextMonthStart, parseEuro } from './money'
 import { estimate, neededPerWeek } from './goals'
-import { review } from './review'
 import type { Category, Expense } from './types'
 import { looksAnnual } from './csv'
 import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES, learnedSuggestions, normalizeText, patternFromNote, ruleMatches, type Rule } from './classify'
 import { checkRule } from './rules'
 import { applyBatches, tidyCandidates, undoBatches } from './tidy'
+import { pieLayout } from './pie'
+import { budgetHint } from './budget'
+import { readChart } from './chartChoice'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
 import { flowLayout } from './flow'
 
@@ -57,36 +59,6 @@ describe('neededPerWeek', () => {
   })
   it('is null without a future deadline', () => {
     expect(neededPerWeek(7000, null, now)).toBeNull(); expect(neededPerWeek(7000, '2026-11-01', now)).toBeNull()
-  })
-})
-
-describe('review', () => {
-  const cats: Category[] = [
-    { id: 'a', name: 'Eating out', emoji: '🍕', budget_cents: 10000 },
-    { id: 'b', name: 'Groceries', emoji: '🛒', budget_cents: 40000 },
-  ]
-  const ex = (id: string, day: string, cents: number): Expense => ({ id: Math.random().toString(), member_id: 'm', category_id: id, amount_cents: cents, note: '', spent_on: day })
-  it('compares month-to-date with the same days last month', () => {
-    const r = review([
-      ex('a', '2026-10-05', 10000), ex('a', '2026-10-28', 99999), // 28th is after "day 20": excluded
-      ex('a', '2026-11-05', 8000), ex('b', '2026-11-06', 5000),
-    ], cats, now)
-    expect(r.totalBefore).toBe(10000); expect(r.totalNow).toBe(13000); expect(r.totalPct).toBe(30)
-    expect(r.less[0]).toMatchObject({ name: 'Eating out', pct: -20 })
-    expect(r.more[0]).toMatchObject({ name: 'Groceries', pct: null }) // nothing last month
-  })
-  it('skips tiny changes and flags categories well under budget', () => {
-    const r = review([ex('a', '2026-10-05', 1000), ex('a', '2026-11-05', 1200)], cats, now)
-    expect(r.less).toEqual([]); expect(r.more).toEqual([])
-    expect(r.underBudget.map(c => c.name)).toContain('Eating out')
-  })
-  it('copes with an empty history', () => {
-    const r = review([], cats, now)
-    expect(r.totalPct).toBeNull(); expect(r.underBudget).toEqual([])
-  })
-  it('handles the 31st when last month is shorter', () => {
-    const r = review([ex('a', '2026-02-28', 7000)], cats, new Date('2026-03-31T10:00:00'))
-    expect(r.totalBefore).toBe(7000)
   })
 })
 
@@ -857,5 +829,88 @@ describe('tidy up Other', () => {
   it('keeps the confidence, so only the sure ones can be ticked to start with', () => {
     const h = buildHistory([{ note: 'Kramer Corner', category_id: 'e' }, { note: 'Kramer Corner', category_id: 'e' }])
     expect(tidyCandidates([x('a1', 'Kramer Corner')], cats, 'o', h, []).rows[0]).toMatchObject({ categoryId: 'e', confidence: 'medium', source: 'history' })
+  })
+})
+
+describe('pie layout', () => {
+  const sl = (id: string, cents: number, pct: number) => ({ id, name: id, cents, pct, color: '#000' })
+  const five = [sl('Groceries', 72000, 31.9), sl('Transport', 48000, 21.2), sl('Kids', 41000, 18.2), sl('Eating out', 36000, 15.9), sl('Leisure', 29000, 12.8)]
+
+  it('draws one slice per category, in order, starting at the top and going clockwise', () => {
+    const p = pieLayout(five)
+    expect(p.slices.map(s => s.id)).toEqual(['Groceries', 'Transport', 'Kids', 'Eating out', 'Leisure'])
+    expect(p.slices[0].d.startsWith('M170 122 L170 44')).toBe(true) // centre, then straight up
+    expect(p.slices.every(s => s.d.endsWith('Z'))).toBe(true)
+  })
+  it('the first slice ends where its share says (31.9% of the circle)', () => {
+    const d = pieLayout(five).slices[0].d
+    const m = /A78 78 0 0 1 ([\d.]+) ([\d.]+) Z/.exec(d)!
+    const a = (31.9 / 100) * 2 * Math.PI // clockwise from the top
+    expect(Number(m[1])).toBeCloseTo(170 + 78 * Math.sin(a), 0); expect(Number(m[2])).toBeCloseTo(122 - 78 * Math.cos(a), 0)
+  })
+  it('uses the large-arc flag only for a slice over half', () => {
+    const p = pieLayout([sl('big', 70, 70), sl('small', 30, 30)])
+    expect(p.slices[0].d).toContain('A78 78 0 1 1'); expect(p.slices[1].d).toContain('A78 78 0 0 1')
+  })
+  it('a single category is a whole circle, labelled on the right', () => {
+    const p = pieLayout([sl('Only', 500, 100)])
+    expect(p.slices).toHaveLength(1); expect(p.slices[0].d).toContain('A78 78 0 1 1'); expect(p.slices[0].label.pct).toBe('100.0%')
+  })
+  it('every slice has a leader line, a name and its share, on the side it points to', () => {
+    const p = pieLayout(five)
+    expect(p.slices.map(s => s.label.side)).toEqual(['r', 'r', 'l', 'l', 'l'])
+    expect(p.slices.map(s => s.label.pct)).toEqual(['31.9%', '21.2%', '18.2%', '15.9%', '12.8%'])
+    for (const s of p.slices) expect(s.label.line.split(' ')).toHaveLength(3)
+  })
+  it('keeps labels on one side apart and inside the picture, even for tiny neighbouring slices', () => {
+    const tiny = pieLayout([sl('a', 1000, 40), sl('b', 30, 3), sl('c', 30, 3), sl('d', 30, 3), sl('e', 30, 3), sl('f', 1000, 48)])
+    for (const side of ['l', 'r'] as const) {
+      const ys = tiny.slices.filter(s => s.label.side === side).map(s => s.label.y).sort((a, b) => a - b)
+      for (let i = 1; i < ys.length; i++) expect(ys[i] - ys[i - 1]).toBeGreaterThanOrEqual(28)
+      for (const y of ys) { expect(y).toBeGreaterThanOrEqual(14); expect(y).toBeLessThanOrEqual(p0(tiny).height - 18) }
+    }
+  })
+  it('shortens long names and ignores empty slices', () => {
+    const p = pieLayout([sl('A very long category name indeed', 100, 50), sl('Empty', 0, 0), sl('B', 100, 50)])
+    expect(p.slices).toHaveLength(2); expect(p.slices[0].label.name).toBe('A very long categ…')
+    expect(pieLayout([]).slices).toEqual([]); expect(pieLayout([sl('Zero', 0, 0)]).slices).toEqual([])
+  })
+})
+const p0 = (p: { height: number }) => p
+
+describe('budget hint', () => {
+  it('says how much is left, with a bar', () => {
+    expect(budgetHint(72000, 100000, false)).toEqual({ pct: 72, state: 'ok', text: '€280 left of €1,000' })
+    expect(budgetHint(0, 5000, false)).toMatchObject({ pct: 0, state: 'ok' })
+  })
+  it('is "nearly used" from 80%', () => {
+    expect(budgetHint(48000, 60000, false)).toEqual({ pct: 80, state: 'near', text: '€120 left of €600, nearly used' })
+    expect(budgetHint(47999, 60000, false)!.state).toBe('ok')
+    expect(budgetHint(60000, 60000, false)).toMatchObject({ pct: 100, state: 'near', text: '€0 left of €600, nearly used' })
+  })
+  it('says when it is over, and caps the bar at 100%', () => {
+    expect(budgetHint(36000, 30000, false)).toEqual({ pct: 100, state: 'over', text: '€60 over its €300 budget' })
+    expect(budgetHint(150000, 30000, false)!.pct).toBe(100)
+  })
+  it('words a finished month as a result', () => {
+    expect(budgetHint(81000, 100000, true)).toEqual({ pct: 81, state: 'near', text: 'Ended €190 under its €1,000 budget' })
+    expect(budgetHint(33000, 30000, true)).toEqual({ pct: 100, state: 'over', text: 'Ended €30 over its €300 budget' })
+  })
+  it('shows nothing for a category without a budget', () => { expect(budgetHint(5000, 0, false)).toBeNull(); expect(budgetHint(5000, -1, true)).toBeNull() })
+  it('keeps cents when they matter', () => { expect(budgetHint(1050, 2000, false)!.text).toBe('€9.50 left of €20') })
+})
+
+describe('chart choice', () => {
+  const store = (mem: Record<string, string>) => { ;(globalThis as unknown as { window: unknown }).window = { localStorage: { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v }, removeItem: (k: string) => { delete mem[k] } } } }
+  it('is the pie unless the person chose otherwise', () => {
+    store({}); expect(readChart()).toBe('pie')
+    store({ 'ff-review-chart': 'bars' }); expect(readChart()).toBe('bars')
+    store({ 'ff-review-chart': 'flow' }); expect(readChart()).toBe('flow')
+    store({ 'ff-review-chart': 'nonsense' }); expect(readChart()).toBe('pie')
+  })
+  it('survives blocked storage', () => {
+    const boom = () => { throw new Error('blocked') }
+    ;(globalThis as unknown as { window: unknown }).window = { localStorage: { getItem: boom, setItem: boom, removeItem: boom } }
+    expect(readChart()).toBe('pie')
   })
 })
