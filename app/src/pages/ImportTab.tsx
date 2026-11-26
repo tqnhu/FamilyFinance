@@ -30,6 +30,7 @@ export default function ImportTab() {
   const [done, setDone] = useState<{ count: number; batch: string } | null>(null)
   const [past, setPast] = useState<Past[]>([])
   const [tag, setTag] = useState('')
+  const [onlyUnsure, setOnlyUnsure] = useState(false)
   const { tags, create: createTag } = useTags()
   const input = useRef<HTMLInputElement>(null)
 
@@ -86,11 +87,14 @@ export default function ImportTab() {
       const sug = suggestCategory(r.note, history, cats)
       const e = edits[r.line] ?? {}
       const hint = looksAnnual(r.note) // the description says "annual", "yearly" and so on: ticked to start with, the person decides
-      return { ...r, dup: dups[i], suggested: sug, cat: e.cat !== undefined ? e.cat : (sug?.categoryId ?? otherCat), selected: e.selected ?? !dups[i], annual: e.annual ?? hint, hint }
+      const chosen = e.cat !== undefined // the person has picked a category themselves
+      return { ...r, dup: dups[i], suggested: sug, cat: chosen ? e.cat : (sug?.categoryId ?? otherCat), selected: e.selected ?? !dups[i], annual: e.annual ?? hint, hint, chosen, needsYou: !chosen && (!sug || sug.confidence !== 'high') }
     })
   }, [read, existing, history, cats, edits, otherCat])
 
   const chosen = rows.filter(r => r.selected)
+  const sorted = rows.filter(r => !r.needsYou).length
+  const shownRows = onlyUnsure ? rows.filter(r => r.needsYou || r.chosen) : rows // rows you have just settled stay put, so the list does not jump under your finger
   const missing = chosen.filter(r => !r.cat).length
   const total = chosen.reduce((s, r) => s + r.cents, 0)
   const annualChosen = chosen.filter(r => r.annual)
@@ -186,17 +190,28 @@ export default function ImportTab() {
       {rows.length > 0 && (
         <section className="card">
           <h2>Review</h2>
+          <p className="sorted" role="status"><strong>{sorted} of {rows.length}</strong> sorted automatically{rows.length - sorted > 0 ? <>, <b>{rows.length - sorted} need you</b></> : ''}.</p>
+          {rows.length - sorted > 0 && (
+            <div className="seg small-seg" role="group" aria-label="Which rows to show">
+              <button aria-pressed={!onlyUnsure} className={!onlyUnsure ? 'on' : ''} onClick={() => setOnlyUnsure(false)}>All {rows.length}</button>
+              <button aria-pressed={onlyUnsure} className={onlyUnsure ? 'on' : ''} onClick={() => setOnlyUnsure(true)}>Needs you {rows.length - sorted}</button>
+            </div>
+          )}
           <div className="btn-row">
             <button onClick={() => setEdits(Object.fromEntries(rows.map(r => [r.line, { ...edits[r.line], selected: true }])))}>Select all</button>
             <button onClick={() => setEdits(Object.fromEntries(rows.map(r => [r.line, { ...edits[r.line], selected: false }])))}>Select none</button>
           </div>
           <div className="imp-list">
-            {rows.map(r => (
+            {shownRows.map(r => (
               <div key={r.line} className={`imp-row ${r.selected ? '' : 'off'}`}>
                 <input type="checkbox" checked={r.selected} aria-label={`Import ${r.note || 'row'} on ${r.date}`} onChange={e => setEdit(r.line, { selected: e.target.checked })} />
                 <div className="imp-main">
                   <div className="imp-note">{r.note || '(no description)'}</div>
                   <div className="muted small">{r.date}{r.dup && <span className="tag warn">possible duplicate</span>}</div>
+                  <span className="imp-why">
+                    <span className={`chip-label ${r.chosen ? 'mine' : r.suggested ? (r.suggested.source === 'history' ? 'learned' : 'rule') : 'unsure'}`}>{r.chosen ? 'Your choice' : r.suggested ? (r.suggested.source === 'history' ? 'Learned' : 'Rule') : 'Unsure'}</span>
+                    <span className="muted small">{r.chosen ? '' : r.suggested ? r.suggested.why : 'Nothing matched. Check the category.'}</span>
+                  </span>
                   <label className="imp-annual">
                     <input type="checkbox" checked={r.annual} aria-label={`Annual fee: ${r.note || 'row'} on ${r.date}`} onChange={e => setEdit(r.line, { annual: e.target.checked })} />
                     <span>Annual fee{r.hint && edits[r.line]?.annual === undefined ? ' ✨ looks like one' : ''}</span>
@@ -208,7 +223,6 @@ export default function ImportTab() {
                     <option value="">Choose…</option>
                     {activeCats.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
                   </select>
-                  {r.suggested && r.cat === r.suggested.categoryId && <span className="muted small">✨ {r.suggested.source === 'history' ? 'from your history' : 'suggested'}</span>}
                 </div>
               </div>
             ))}

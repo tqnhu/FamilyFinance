@@ -8,6 +8,8 @@ import { compressToJpeg } from '../lib/image'
 import { receiptUrl, removeReceipt, uploadReceipt } from '../lib/receipts'
 import { useTags } from '../lib/tags'
 import TagPicker from '../components/TagPicker'
+import { classify, type Suggestion } from '../lib/classify'
+import { useHistory } from '../lib/useHistory'
 
 type Props = {
   cats: Category[]
@@ -32,6 +34,23 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
   const [date, setDate] = useState(expense?.spent_on ?? defaultDate ?? today())
   const [tag, setTag] = useState<string>(expense?.tag_id ?? '')
   const [annual, setAnnual] = useState<boolean>(Boolean(expense?.annual_fee))
+
+  // Suggesting a category from the note (new expenses only). A confident suggestion is pre-selected, a less certain one is only offered.
+  const history = useHistory(!editing)
+  const [picked, setPicked] = useState(false) // once the person taps a category, the suggestion never overrides them
+  const [auto, setAuto] = useState<Suggestion>(null)
+  const autoSet = useRef('') // the category the suggestion selected, so it can be taken back when the note changes
+  const catsRef = useRef(cats); catsRef.current = cats
+  useEffect(() => {
+    if (editing || picked) return
+    const s = note.trim().length >= 3 ? classify(note, history, catsRef.current) : null
+    setAuto(s)
+    const sure = s?.confidence === 'high' ? s.categoryId : ''
+    const before = autoSet.current // read now: the updater below runs later
+    setCat(c => (sure ? sure : (c && c === before ? '' : c)))
+    autoSet.current = sure
+  }, [note, history, editing, picked])
+  const suggestedCat = auto ? cats.find(c => c.id === auto.categoryId) : undefined
   const { tags, create: createTag } = useTags()
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -125,9 +144,17 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
         <label>Amount (€)<input autoFocus inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></label>
         <div className="chips">
           {cats.map(c => (
-            <button type="button" key={c.id} className={`chip ${cat === c.id ? 'on' : ''}`} onClick={() => setCat(c.id)}>{c.emoji} {c.name}</button>
+            <button type="button" key={c.id} className={`chip ${cat === c.id ? 'on' : ''}`} onClick={() => { setPicked(true); setCat(c.id) }}>{c.emoji} {c.name}</button>
           ))}
         </div>
+        {!editing && !picked && auto && suggestedCat && (
+          <div className="suggest" role="status">
+            <div><span className={`chip-label ${auto.source === 'history' ? 'learned' : 'rule'}`}>{auto.source === 'history' ? 'Learned' : 'Rule'}</span>
+              <strong>{auto.confidence === 'high' ? `Suggested: ${suggestedCat.name}` : `Maybe ${suggestedCat.name}?`}</strong></div>
+            <span className="small">{auto.why}{auto.confidence === 'high' ? ' Pick another category if this is wrong.' : ''}</span>
+            {auto.confidence !== 'high' && <button type="button" className="chip" onClick={() => { setPicked(true); setCat(suggestedCat.id) }}>Use {suggestedCat.name}</button>}
+          </div>
+        )}
         <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
         <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} />

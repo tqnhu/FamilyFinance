@@ -4,6 +4,7 @@ import { estimate, neededPerWeek } from './goals'
 import { review } from './review'
 import type { Category, Expense } from './types'
 import { looksAnnual } from './csv'
+import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES } from './classify'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
 import { flowLayout } from './flow'
 
@@ -695,5 +696,51 @@ describe('annual fee flag', () => {
   it('spots bank descriptions that say a payment covers a year', () => {
     for (const d of ['ANWB annual fee 2026', 'Yearly membership Sportclub', 'insurance 480 per year', 'Jaarlijkse bijdrage', 'JAARPREMIE autoverzekering', 'Pay a year ahead']) expect(looksAnnual(d), d).toBe(true)
     for (const d of ['Albert Heijn Amsterdam', 'Annualist Books', 'Monthly fee Spotify', 'Payment for yearbook photos', '']) expect(looksAnnual(d), d).toBe(false)
+  })
+})
+
+describe('classify (suggestions with a reason and a confidence)', () => {
+  const C = (id: string, name: string): Category => ({ id, name, emoji: '•', budget_cents: 0, archived: false })
+  const cats = [C('g', 'Groceries'), C('e', 'Eating out'), C('t', 'Transport'), C('h', 'Health'), C('f', 'Fun'), C('o', 'Other')]
+  const hist = (rows: [string, string][]) => buildHistory(rows.map(([note, category_id]) => ({ note, category_id })))
+
+  it('is confident after three consistent examples and says how many', () => {
+    const h = hist([['Bakkerij Kramer', 'e'], ['Bakkerij Kramer Utrecht', 'e'], ['Bakkerij Kramer 12', 'e']])
+    const s = classify('Bakkerij Kramer', h, cats)!
+    expect(s).toMatchObject({ categoryId: 'e', source: 'history', confidence: 'high' })
+    expect(s.why).toBe('3 earlier expenses mentioning "bakkerij" went to Eating out.')
+  })
+  it('only offers (medium) on two examples, so it is not pre-selected', () => {
+    const s = classify('Bakkerij Kramer', hist([['Bakkerij Kramer', 'e'], ['Bakkerij Kramer Utrecht', 'e']]), cats)!
+    expect(s.confidence).toBe('medium'); expect(s.why).toContain('2 earlier expenses')
+  })
+  it('does not suggest when the history contradicts itself', () => {
+    const h = hist([['Zeta Corner', 'e'], ['Zeta Corner', 'g'], ['Zeta Corner', 'e'], ['Zeta Corner', 'g']])
+    expect(classify('Zeta Corner', h, cats)).toBeNull()
+  })
+  it('starter rules are confident and name the rule', () => {
+    expect(classify('Lidl Berlin 1234', new Map(), cats)).toMatchObject({ categoryId: 'g', source: 'keyword', confidence: 'high', why: 'Starter rule: "lidl" is usually Groceries.' })
+  })
+  it('knows common shops across Europe', () => {
+    const cases: [string, string][] = [['Albert Heijn 1042', 'g'], ['EDEKA Muenchen', 'g'], ['Carrefour Market Lyon', 'g'], ['MERCADONA 123 Madrid', 'g'], ['Tesco Stores 3421', 'g'], ['Boulangerie Paul', 'e'],
+      ['Lieferando bestellung', 'e'], ['SNCF Voyages', 't'], ['Deutsche Bahn AG', 't'], ['Apotheke am Markt', 'h'], ['Kinepolis Brussel', 'f'], ['Netflix.com', 'f']]
+    for (const [d, id] of cases) expect(classify(d, new Map(), cats)?.categoryId, d).toBe(id)
+  })
+  it('understands other names for the same kind of spending', () => {
+    const renamed = [C('x', 'Food'), C('y', 'Leisure'), C('z', 'Travel')]
+    expect(classify('Jumbo 22', new Map(), renamed)?.categoryId).toBe('x')
+    expect(classify('Spotify AB', new Map(), renamed)?.categoryId).toBe('y')
+    expect(classify('Flixbus', new Map(), renamed)?.categoryId).toBe('z')
+    expect(classify('Jumbo 22', new Map(), [C('q', 'Snacks')])).toBeNull() // a name it cannot place: ask, never guess
+  })
+  it('the starter lists and the accepted names cover the same kinds', () => {
+    expect(Object.keys(STARTER_RULES).sort()).toEqual(Object.keys(CATEGORY_NAMES).sort())
+    for (const words of Object.values(STARTER_RULES)) for (const w of words) expect(w, w).toBe(w.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()) // typed without accents, as descriptions are compared
+  })
+  it('keeps short words from matching inside longer ones', () => {
+    for (const d of ['Cooperative society', 'Boltzmann Institute', 'Total Commander licence', 'Sparkling water bar']) expect(classify(d, new Map(), cats), d).toBeNull()
+  })
+  it('ignores archived categories', () => {
+    expect(classify('Lidl', new Map(), [{ ...C('g', 'Groceries'), archived: true }])).toBeNull()
   })
 })

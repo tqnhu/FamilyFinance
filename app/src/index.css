@@ -91,7 +91,7 @@ a { color:var(--brand) }
 .tappable { cursor:pointer; border-radius:8px } .tappable:hover, .tappable:focus-visible { background:color-mix(in srgb, var(--fg) 5%, transparent); outline:none }
 .tag { margin-left:8px } button.danger { color:var(--bad) }
 .receipt { margin:10px 0 } .receipt img { display:block; max-width:100%; max-height:220px; border-radius:10px; border:1px solid var(--line); margin-bottom:8px }
-.imp-list { margin:8px 0 } .imp-row { display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:start; padding:10px 0; border-top:1px solid var(--line); content-visibility:auto; contain-intrinsic-size:auto 64px }
+.imp-list { margin:8px 0 } .imp-row { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:start; padding:10px 0; border-top:1px solid var(--line); content-visibility:auto; contain-intrinsic-size:auto 64px }
 .imp-row.off { opacity:.5 } .imp-row input[type=checkbox] { width:22px; height:22px; margin:2px 0 0 } .imp-main { min-width:0 } .imp-note { overflow-wrap:anywhere }
 .imp-side { display:flex; flex-direction:column; align-items:flex-end; gap:4px } .imp-side select { width:auto; max-width:150px; padding:6px; font-size:.85rem }
 [hidden] { display:none !important }
@@ -197,3 +197,12 @@ svg.flow { width:100%; height:auto; display:block; margin-top:8px } .flow .flow-
 label.annual-opt { display:flex; align-items:flex-start; gap:12px; margin:12px 0; color:var(--fg); font-size:.95rem }
 label.annual-opt input { width:22px; height:22px; margin:2px 0 0; flex:none; accent-color:var(--brand) } label.annual-opt small { display:block; font-size:.8rem }
 label.imp-annual { display:flex; align-items:center; gap:8px; margin:6px 0 0; font-size:.85rem; color:var(--fg) }
+
+/* Automatic classification: labels and the suggestion box */
+.chip-label { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; border-radius:6px; padding:2px 8px; margin-right:8px }
+.chip-label.rule { background:#e3f1ef; color:#0b5c55 } .chip-label.learned { background:#e8eefb; color:#2a4fa3 } .chip-label.unsure { background:#fdf0dc; color:#8a4b00 } .chip-label.mine { background:var(--line); color:var(--fg) }
+@media (prefers-color-scheme: dark) { .chip-label.rule { background:#0f3a36; color:#8fe0d6 } .chip-label.learned { background:#1c2a4a; color:#a9c1f5 } .chip-label.unsure { background:#4a3412; color:#f2c27a } }
+.suggest { background:var(--bg); border-radius:12px; padding:12px; margin:10px 0; display:flex; flex-direction:column; gap:6px; align-items:flex-start }
+.suggest .chip { margin-top:2px }
+.imp-why { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; margin-top:4px }
+p.sorted { margin:0 0 8px }

@@ -179,7 +179,7 @@ const py = (f, xy = '5,5') => require('child_process').execSync('python3 -c "fro
   ok(rowsText.length === 5 && rowsText.some(t => t.includes('Zoë Müller')), 'the cp1252 file decodes (é survives)')
   const catOf = async txt => pg.locator(`.imp-row:has-text("${txt}") select`).evaluate(e => e.options[e.selectedIndex].text)
   ok((await catOf('Albert Heijn')).includes('Groceries') && (await catOf('NS Groep')).includes('Transport') && (await catOf('Thuisbezorgd')).includes('Eating out'), 'starter keywords suggest Groceries, Transport, Eating out')
-  ok((await catOf('Bakkerij')).includes('Eating out') && await pg.locator('.imp-row:has-text("Bakkerij") >> text=from your history').count() === 1, 'a merchant seen before is categorised from the family\'s own history')
+  ok((await catOf('Bakkerij')).includes('Eating out') && await pg.locator('.imp-row:has-text("Bakkerij") >> text=Learned').count() === 1 && await pg.locator('.imp-row:has-text("Bakkerij") >> text=earlier expenses mentioning').count() === 1, 'a merchant seen before is categorised from the family\'s own history, labelled Learned with the reason')
   ok((await catOf('Zoë Müller')).includes('Other'), 'unknown merchants default to Other')
   ok(await pg.locator('.imp-row:has-text("Albert Heijn") >> text=possible duplicate').count() === 1 && await pg.locator('.imp-row:has-text("Albert Heijn") input[type=checkbox]').isChecked() === false, 'an expense already entered (same day and amount) is flagged and unchecked')
   ok((await pg.locator('button.primary:has-text("Import 4")').count()) === 1, 'the button says exactly what will happen (4 expenses)')

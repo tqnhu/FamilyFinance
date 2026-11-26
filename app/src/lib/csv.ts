@@ -1,5 +1,4 @@
 import Papa from 'papaparse'
-import type { Category } from './types'
 
 /* ---------- reading the file ---------- */
 
@@ -193,73 +192,8 @@ export function readExpenses(t: Table, m: Mapping, o: Options, cap = 2000): { ro
 
 /* ---------- suggesting categories ---------- */
 
-const NOISE = new Set(['betaalautomaat', 'pinbetaling', 'pas', 'sepa', 'incasso', 'ideal', 'card', 'payment', 'pos', 'nr', 'ref', 'kaart', 'google', 'apple', 'pay',
-  'transactie', 'overboeking', 'term', 'contactloos', 'debit', 'credit', 'purchase', 'visa', 'mastercard', 'bea', 'gea', 'the', 'and', 'van', 'het', 'een', 'tot',
-  'betaling', 'omschrijving', 'naam', 'iban', 'bic', 'kenmerk', 'machtiging', 'doorlopende', 'europese', 'periode', 'bv', 'nv', 'ltd', 'gmbh', 'www', 'com', 'nl'])
-
-/** Words that identify a merchant: lowercase, no digits or accents, no bank boilerplate, at least 3 letters. */
-export function tokens(desc: string): string[] {
-  return [...new Set(desc.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, ' ').split(/\s+/).filter(w => w.length >= 3 && !NOISE.has(w)))]
-}
-
-/** What the family's own categorised expenses say about each word. */
-export function buildHistory(expenses: { note: string; category_id: string | null }[]): Map<string, Map<string, number>> {
-  const idx = new Map<string, Map<string, number>>()
-  for (const e of expenses) {
-    if (!e.category_id || !e.note) continue
-    for (const w of tokens(e.note)) {
-      const m = idx.get(w) ?? new Map<string, number>()
-      m.set(e.category_id, (m.get(e.category_id) ?? 0) + 1)
-      idx.set(w, m)
-    }
-  }
-  return idx
-}
-
-/** Starter keywords per category name, used only until the family's own history knows better. */
-const KEYWORDS: Record<string, string[]> = {
-  groceries: ['albert heijn', 'jumbo', 'lidl', 'aldi', 'dirk', 'spar', 'carrefour', 'tesco', 'edeka', 'rewe', 'kaufland', 'delhaize', 'supermarkt', 'supermarket', 'plus supermarkt', 'coop', 'hofer', 'mercadona', 'picnic', 'ah to go', 'ekoplaza', 'marqt'],
-  'eating out': ['mcdonald', 'burger king', 'kfc', 'restaurant', 'cafe', 'pizza', 'starbucks', 'subway', 'thuisbezorgd', 'uber eats', 'deliveroo', 'just eat', 'bakkerij', 'snackbar', 'lunchroom', 'domino', 'wolt', 'bistro', 'brasserie', 'sushi'],
-  transport: ['shell', 'bp ', 'esso', 'texaco', 'tankstation', 'ov chipkaart', 'ov-chipkaart', 'uber', 'bolt', 'parking', 'parkeer', 'gvb', 'htm', 'arriva', 'deutsche bahn', 'flixbus', 'q-park', 'tamoil', 'ns groep', 'ns reizigers', 'treinkaartje'],
-  health: ['apotheek', 'pharmacy', 'huisarts', 'tandarts', 'dokter', 'fysio', 'ziekenhuis', 'opticien', 'drogist'],
-  fun: ['netflix', 'spotify', 'cinema', 'bioscoop', 'pathe', 'steam', 'playstation', 'nintendo', 'disney', 'youtube', 'xbox', 'museum', 'pretpark', 'efteling', 'theater', 'concert', 'ticketmaster'],
-  'home & bills': ['vattenfall', 'eneco', 'energie', 'ziggo', 'kpn', 'vodafone', 't-mobile', 'odido', 'verzekering', 'insurance', 'huur', 'hypotheek', 'waterbedrijf', 'gemeente', 'belasting', 'ikea', 'hornbach', 'gamma', 'praxis', 'karwei'],
-  kids: ['speelgoed', 'toys', 'lego', 'school', 'kinderopvang', 'bso', 'kinderdagverblijf', 'bol.com kids', 'jumbo kids'],
-}
-
-/** Long or multi-word keywords match anywhere; short ones (coop, spar, uber) only as whole words, so "cooperative" is not a supermarket. */
-function hasKeyword(text: string, k: string): boolean {
-  const key = k.trim()
-  return key.length > 4 || key.includes(' ') ? text.includes(key) : text.includes(' ' + key + ' ')
-}
-
-export type Suggestion = { categoryId: string; source: 'history' | 'keyword' } | null
-
-export function suggestCategory(desc: string, history: Map<string, Map<string, number>>, cats: Category[]): Suggestion {
-  const valid = new Set(cats.filter(c => !c.archived).map(c => c.id))
-  // 1. what this family did before: each known word votes for its categories, weighted by how consistent it was
-  const score = new Map<string, number>()
-  for (const w of tokens(desc)) {
-    const m = history.get(w); if (!m) continue
-    const total = [...m.values()].reduce((s, v) => s + v, 0)
-    for (const [cat, n] of m) {
-      const purity = n / total // how consistently this word pointed at this category
-      // A word spread over many categories (a city, "shop") proves nothing. One sighting is only half the evidence,
-      // so a lone matching word is not enough: it takes a word seen twice, or two matching words, to suggest.
-      if (valid.has(cat) && purity >= 0.6) score.set(cat, (score.get(cat) ?? 0) + (purity * Math.min(total, 2)) / 2)
-    }
-  }
-  const best = [...score.entries()].sort((a, b) => b[1] - a[1])[0]
-  if (best && best[1] >= 0.9) return { categoryId: best[0], source: 'history' }
-  // 2. starter keywords, matched against the family's category names
-  const text = ' ' + desc.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ') + ' '
-  for (const c of cats) {
-    if (c.archived) continue
-    const words = KEYWORDS[c.name.trim().toLowerCase()]
-    if (words?.some(k => hasKeyword(text, k))) return { categoryId: c.id, source: 'keyword' }
-  }
-  return null
-}
+export { buildHistory, classify as suggestCategory, tokens } from './classify'
+export type { Suggestion } from './classify'
 
 /* ---------- duplicates ---------- */
 

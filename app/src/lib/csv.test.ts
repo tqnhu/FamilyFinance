@@ -127,11 +127,11 @@ describe('suggesting categories', () => {
   })
   it('the family’s own history comes first', () => {
     const hist = buildHistory([{ note: 'Bakkerij Kramer Utrecht', category_id: 'e' }, { note: 'Bakkerij Kramer', category_id: 'e' }])
-    expect(suggestCategory('BEA Bakkerij Kramer 55', hist, cats)).toEqual({ categoryId: 'e', source: 'history' })
+    expect(suggestCategory('BEA Bakkerij Kramer 55', hist, cats)).toMatchObject({ categoryId: 'e', source: 'history' })
   })
   it('a shop seen once is recognised by its words, but a lone city word is not enough', () => {
     const hist = buildHistory([{ note: 'Bakkerij Kramer Utrecht', category_id: 'e' }])
-    expect(suggestCategory('Bakkerij Kramer 99', hist, cats)).toEqual({ categoryId: 'e', source: 'history' }) // two matching words
+    expect(suggestCategory('Bakkerij Kramer 99', hist, cats)).toMatchObject({ categoryId: 'e', source: 'history' }) // two matching words
     expect(suggestCategory('Zoe Muller Utrecht', hist, cats)).toBeNull() // only the city matches: a different shop
   })
   it('history beats the built-in keywords', () => {
@@ -143,7 +143,7 @@ describe('suggesting categories', () => {
     expect(suggestCategory('Something Amsterdam', hist, cats)).toBeNull()
   })
   it('falls back to starter keywords, matched to the family’s category names', () => {
-    expect(suggestCategory('Albert Heijn 1234 Amsterdam', new Map(), cats)).toEqual({ categoryId: 'g', source: 'keyword' })
+    expect(suggestCategory('Albert Heijn 1234 Amsterdam', new Map(), cats)).toMatchObject({ categoryId: 'g', source: 'keyword' })
     expect(suggestCategory('NS Groep IZ NS Reizigers', new Map(), cats)?.categoryId).toBe('t')
   })
   it('short keywords only match whole words', () => {

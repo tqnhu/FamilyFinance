@@ -316,6 +316,8 @@ sequenceDiagram
   Note over A,D: Monthly fees now count in Home, the month review and category pages.<br/>Yearly bills count in the Year view and tag totals.
 ```
 
+**Suggesting categories** (`lib/classify.ts`) runs in the browser: the family's own latest 1,000 categorised notes are turned into a word index, and a description is scored against it; if that is not conclusive, a built-in European shop list is matched against the family's category names. It returns a category, a confidence (high = pre-selected, medium = offered) and a one-line reason. It is used when adding an expense and in the bank import; nothing is sent to a third party and nothing is stored beyond the expenses themselves.
+
 **CSV bank import** is entirely client-side until the last step: the file is read and parsed in the browser (never
 uploaded), columns, dates, signs and categories are suggested locally, duplicates are checked against existing expenses,
 and then the chosen rows are inserted in batches of 200 with one `import_batch` id so the whole import can be undone.
@@ -355,6 +357,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 | 12a | See where the money goes: shares by category for a month or a year, compared with the previous month, a flow diagram on wide screens | parent | Review → Breakdown | `expenses`, `year_summary` |
 | 13 | Track yearly, half-yearly, quarterly and monthly bills; mark paid; see which are coming up (highlighted by urgency); get reminders | parent | Plan → Bills, Home | `bills`, `mark_bill_paid`, `unmark_bill_paid` |
 | 14 | Import a bank CSV with suggested categories; undo an import; mark rows as annual fees | parent | Plan → Import | `expenses` (batched) |
+| 14b | Get a category suggested (with the reason) while typing an expense and in the bank import | everyone (import: parent) | expense form, Plan → Import | `expenses` (history) |
 | 14a | Mark any expense as an annual fee so it is not counted as monthly spending (and turn it off again) | everyone, own rows (parents: any) | expense form, Plan → Import | `expenses.annual_fee` |
 | 15 | Give a child a weekly allowance split into Spend, Save, Give, with an optional savings match | parent | Jars | `set_allowance`, `settle_allowance` |
 | 16 | Add or remove a child's money; move money between jars | parent, child (limited) | Jars | `add_money`, `move_money` |
@@ -367,7 +370,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `014` in order (each is safe to run once).
 * **Tests:** 371 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 211 unit tests (`app/src/lib`), and about 480 browser checks against a stubbed backend (`app/e2e`).
+  storage), 220 unit tests (`app/src/lib`), and about 510 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits
