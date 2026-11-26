@@ -3,12 +3,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro } from '../lib/money'
 import {
-  buildHistory, decodeCsv, detectDateOrder, detectMapping, detectSign, looksAnnual, markDuplicates, parseCsv, readExpenses, suggestCategory,
+  buildHistory, decodeCsv, detectDateOrder, detectMapping, detectSign, looksAnnual, markDuplicates, parseCsv, readExpenses,
   type DateOrder, type Mapping, type Table,
 } from '../lib/csv'
 import type { Category } from '../lib/types'
 import { useTags } from '../lib/tags'
 import TagPicker from '../components/TagPicker'
+import { classify, patternFromNote } from '../lib/classify'
+import { useRules, useRuleActions } from '../lib/rules'
 
 type Edit = { selected?: boolean; cat?: string | null; annual?: boolean }
 type Past = { batch: string; count: number; total: number; first: string; last: string; created: string }
@@ -27,10 +29,13 @@ export default function ImportTab() {
   const [edits, setEdits] = useState<Record<number, Edit>>({})
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
-  const [done, setDone] = useState<{ count: number; batch: string } | null>(null)
+  const [done, setDone] = useState<{ count: number; batch: string; remembered: number } | null>(null)
   const [past, setPast] = useState<Past[]>([])
   const [tag, setTag] = useState('')
   const [onlyUnsure, setOnlyUnsure] = useState(false)
+  const [remember, setRemember] = useState(true) // turn the categories the person changes into rules
+  const { rules, reload: reloadRules } = useRules()
+  const ruleActions = useRuleActions(reloadRules)
   const { tags, create: createTag } = useTags()
   const input = useRef<HTMLInputElement>(null)
 
@@ -84,13 +89,13 @@ export default function ImportTab() {
     if (!read) return []
     const dups = markDuplicates(read.rows, existing)
     return read.rows.map((r, i) => {
-      const sug = suggestCategory(r.note, history, cats)
+      const sug = classify(r.note, history, cats, { rules, cents: r.cents })
       const e = edits[r.line] ?? {}
       const hint = looksAnnual(r.note) // the description says "annual", "yearly" and so on: ticked to start with, the person decides
       const chosen = e.cat !== undefined // the person has picked a category themselves
-      return { ...r, dup: dups[i], suggested: sug, cat: chosen ? e.cat : (sug?.categoryId ?? otherCat), selected: e.selected ?? !dups[i], annual: e.annual ?? hint, hint, chosen, needsYou: !chosen && (!sug || sug.confidence !== 'high') }
+      return { ...r, dup: dups[i], suggested: sug, cat: chosen ? e.cat : (sug?.categoryId ?? otherCat), selected: e.selected ?? !dups[i], annual: e.annual ?? (sug?.annualFee ?? hint), hint: hint && !sug?.annualFee, tagId: sug?.tagId ?? null, chosen, needsYou: !chosen && (!sug || sug.confidence !== 'high') }
     })
-  }, [read, existing, history, cats, edits, otherCat])
+  }, [read, existing, history, cats, edits, otherCat, rules])
 
   const chosen = rows.filter(r => r.selected)
   const sorted = rows.filter(r => !r.needsYou).length
@@ -109,7 +114,7 @@ export default function ImportTab() {
     for (let i = 0; i < chosen.length; i += CHUNK) {
       const part = chosen.slice(i, i + CHUNK).map(r => ({
         family_id: member.family_id, member_id: member.user_id, category_id: r.cat, amount_cents: r.cents,
-        note: r.note, spent_on: r.date, import_batch: batch, tag_id: tag || null,
+        note: r.note, spent_on: r.date, import_batch: batch, tag_id: r.tagId || tag || null,
         ...(r.annual ? { annual_fee: true } : {}), // only sent when ticked, so a normal import never depends on it
       }))
       const { error } = await supabase.from('expenses').insert(part)
@@ -119,7 +124,20 @@ export default function ImportTab() {
       }
       n += part.length
     }
-    setBusy(false); setDone({ count: n, batch }); setTable(null); setMapping(null); setEdits({}); void loadPast()
+    // The categories the person changed from the suggestion become rules (parents only reach this screen), one per shop.
+    let remembered = 0
+    if (remember) {
+      const seen = new Map<string, string | null>() // pattern -> category, or null when the file disagrees with itself
+      for (const r of chosen) {
+        if (!r.chosen || !r.cat || r.suggested?.categoryId === r.cat) continue
+        const p = r.suggested?.source === 'keyword' && r.suggested.matched ? r.suggested.matched : patternFromNote(r.note); if (!p || rules.some(x => x.pattern === p && x.min_cents === null && x.max_cents === null)) continue
+        seen.set(p, seen.has(p) && seen.get(p) !== r.cat ? null : r.cat)
+      }
+      for (const [p, cat] of seen) {
+        if (cat && !(await ruleActions.add({ pattern: p, min_cents: null, max_cents: null, category_id: cat, tag_id: null, annual_fee: false }))) remembered++
+      }
+    }
+    setBusy(false); setDone({ count: n, batch, remembered }); setTable(null); setMapping(null); setEdits({}); void loadPast()
     if (input.current) input.current.value = ''
   }
 
@@ -154,7 +172,7 @@ export default function ImportTab() {
       {done && (
         <section className="card attention">
           <h2>✅ Imported {done.count} expenses</h2>
-          <p className="muted small">They are on your Home screen under their dates.</p>
+          <p className="muted small">They are on your Home screen under their dates.{done.remembered > 0 ? ` ${done.remembered} of your category choices ${done.remembered === 1 ? 'was' : 'were'} saved as ${done.remembered === 1 ? 'a rule' : 'rules'} (Plan, Rules).` : ''}</p>
           <button onClick={() => undo({ batch: done.batch, count: done.count })}>Undo this import</button>
         </section>
       )}
@@ -228,6 +246,10 @@ export default function ImportTab() {
             ))}
           </div>
           <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} label="Tag all these expenses (optional), e.g. a holiday statement" />
+          <label className="annual-opt">
+            <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
+            <span>Remember the categories I choose here<small className="muted"> Only for descriptions where I change the suggestion. You can review them in Plan, Rules.</small></span>
+          </label>
           {annualChosen.length > 0 && (
             <p className="muted small" role="status">{annualChosen.length} marked as {annualChosen.length === 1 ? 'an annual fee' : 'annual fees'} ({euro(annualTotal)}): kept out of monthly spending, budgets and the breakdown. You can change this later by editing the expense.</p>
           )}

@@ -4,7 +4,8 @@ import { estimate, neededPerWeek } from './goals'
 import { review } from './review'
 import type { Category, Expense } from './types'
 import { looksAnnual } from './csv'
-import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES } from './classify'
+import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES, learnedSuggestions, normalizeText, patternFromNote, ruleMatches, type Rule } from './classify'
+import { checkRule } from './rules'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
 import { flowLayout } from './flow'
 
@@ -719,7 +720,7 @@ describe('classify (suggestions with a reason and a confidence)', () => {
     expect(classify('Zeta Corner', h, cats)).toBeNull()
   })
   it('starter rules are confident and name the rule', () => {
-    expect(classify('Lidl Berlin 1234', new Map(), cats)).toMatchObject({ categoryId: 'g', source: 'keyword', confidence: 'high', why: 'Starter rule: "lidl" is usually Groceries.' })
+    expect(classify('Lidl Berlin 1234', new Map(), cats)).toMatchObject({ categoryId: 'g', source: 'keyword', confidence: 'high', matched: 'lidl', why: 'Starter rule: "lidl" is usually Groceries.' })
   })
   it('knows common shops across Europe', () => {
     const cases: [string, string][] = [['Albert Heijn 1042', 'g'], ['EDEKA Muenchen', 'g'], ['Carrefour Market Lyon', 'g'], ['MERCADONA 123 Madrid', 'g'], ['Tesco Stores 3421', 'g'], ['Boulangerie Paul', 'e'],
@@ -742,5 +743,76 @@ describe('classify (suggestions with a reason and a confidence)', () => {
   })
   it('ignores archived categories', () => {
     expect(classify('Lidl', new Map(), [{ ...C('g', 'Groceries'), archived: true }])).toBeNull()
+  })
+})
+
+describe('family rules', () => {
+  const C = (id: string, name: string): Category => ({ id, name, emoji: '•', budget_cents: 0, archived: false })
+  const cats = [C('g', 'Groceries'), C('e', 'Eating out'), C('t', 'Transport'), C('f', 'Fun'), C('o', 'Other')]
+  const R = (pattern: string, category_id: string, o: Partial<Rule> = {}): Rule => ({ id: pattern + category_id, pattern, min_cents: null, max_cents: null, category_id, tag_id: null, annual_fee: false, status: 'on', ...o })
+  const none = new Map()
+
+  it('match the description ignoring case and accents, with the same word rules as the starter list', () => {
+    expect(ruleMatches(R('cafe de jaren', 'e'), 'CAFÉ de Jaren Amsterdam')).toBe(true)
+    expect(ruleMatches(R('sportclub', 'f'), 'SEPA Sportclub Rijnstad 123')).toBe(true)
+    expect(ruleMatches(R('ah', 'g'), 'Bahrain Air')).toBe(false) // a short pattern only matches a whole word
+    expect(ruleMatches(R('ah', 'g'), 'AH Utrecht')).toBe(true)
+    expect(ruleMatches(R('shops', 'g'), 'Webshops')).toBe(true) // 5 letters or more match inside a word
+    expect(ruleMatches(R('shop', 'g'), 'Webshop')).toBe(false) // up to 4 letters: whole words only
+  })
+  it('amount ranges: inclusive, and waiting until an amount is known', () => {
+    const r = R('shell', 't', { min_cents: 6000 }), both = R('shell', 't', { min_cents: 1000, max_cents: 2000 })
+    expect(ruleMatches(r, 'Shell Utrecht', 6000)).toBe(true); expect(ruleMatches(r, 'Shell Utrecht', 5999)).toBe(false)
+    expect(ruleMatches(r, 'Shell Utrecht')).toBe(false)
+    expect(ruleMatches(both, 'Shell', 1000)).toBe(true); expect(ruleMatches(both, 'Shell', 2000)).toBe(true); expect(ruleMatches(both, 'Shell', 2001)).toBe(false)
+    expect(ruleMatches(R('shell', 't', { max_cents: 500 }), 'Shell', 500)).toBe(true)
+  })
+  it('are followed first, ahead of history and the starter list', () => {
+    const s = classify('Lidl Berlin', none, cats, { rules: [R('lidl', 'e')] })!
+    expect(s).toMatchObject({ categoryId: 'e', source: 'rule', confidence: 'high' }); expect(s.why).toBe('Your rule: "lidl" goes to Eating out.')
+    const h = buildHistory([{ note: 'Lidl Berlin', category_id: 'f' }, { note: 'Lidl Berlin', category_id: 'f' }, { note: 'Lidl Berlin', category_id: 'f' }])
+    expect(classify('Lidl Berlin', h, cats, { rules: [R('lidl', 'e')] })?.categoryId).toBe('e')
+  })
+  it('the most specific rule wins: an amount range, then the longer text', () => {
+    const rules = [R('shell', 't'), R('shell express', 'e'), R('shell', 'g', { min_cents: 6000 })]
+    expect(classify('Shell Express 20', none, cats, { rules, cents: 2000 })?.categoryId).toBe('e') // longer text beats shorter
+    expect(classify('Shell Express 80', none, cats, { rules, cents: 8000 })?.categoryId).toBe('g') // a range beats a longer text
+    expect(classify('Shell Utrecht', none, cats, { rules, cents: 2000 })?.categoryId).toBe('t')
+  })
+  it('can also set a tag and the annual-fee flag', () => {
+    const s = classify('Sportclub contributie', none, cats, { rules: [R('sportclub', 'f', { tag_id: 'tag1', annual_fee: true })] })!
+    expect(s.tagId).toBe('tag1'); expect(s.annualFee).toBe(true); expect(s.why).toContain('as an annual fee')
+    expect(classify('Lidl', none, cats)?.annualFee).toBeUndefined() // starter rules never do
+  })
+  it('are ignored when off, dismissed, or pointing at an archived or unknown category', () => {
+    for (const status of ['off', 'dismissed'] as const) expect(classify('Zzz Corner', none, cats, { rules: [R('zzz corner', 'f', { status })] })).toBeNull()
+    expect(classify('Zzz Corner', none, cats, { rules: [R('zzz corner', 'x')] })).toBeNull()
+    expect(classify('Zzz Corner', none, [{ ...C('f', 'Fun'), archived: true }], { rules: [R('zzz corner', 'f')] })).toBeNull()
+  })
+
+  it('turn a note into a pattern that matches its own note', () => {
+    expect(patternFromNote('Bakkerij Kramer Utrecht')).toBe('bakkerij kramer')
+    expect(patternFromNote('BEA NR:XY12 Albert Heijn 1234')).toBe('albert heijn')
+    expect(patternFromNote('Bakkerij 12 Kramer')).toBe('bakkerij') // not adjacent: one word, so the rule still matches its own note
+    expect(patternFromNote('Zoe')).toBeNull(); expect(patternFromNote('1234 56')).toBeNull()
+    for (const n of ['Bakkerij Kramer Utrecht', 'Bakkerij 12 Kramer', 'Café de Jaren']) expect(ruleMatches(R(patternFromNote(n)!, 'e'), n), n).toBe(true)
+  })
+  it('normalises what a person types', () => { expect(normalizeText('  CAFÉ   De  Jaren ')).toBe('cafe de jaren') })
+
+  it('learned patterns: seen 3 times and nearly always in one category, not already a rule, not already known to the starter list', () => {
+    const rows = [...Array(4).fill('Kramer Corner Utrecht'), 'Kramer Corner', ...Array(3).fill('Lidl Berlin'), ...Array(2).fill('Rare Place'), 'Mixed Shop', 'Mixed Shop', 'Mixed Shop'].map((note, i) => ({ note, category_id: note === 'Mixed Shop' ? (i % 2 ? 'g' : 'e') : note.startsWith('Kramer') ? 'e' : note.startsWith('Lidl') ? 'g' : 'f' }))
+    const l = learnedSuggestions(rows, cats, [])
+    expect(l.map(x => [x.pattern, x.categoryId, x.count])).toEqual([['kramer corner', 'e', 5]]) // Lidl is a starter shop, Rare Place has 2, Mixed Shop is inconsistent
+    expect(learnedSuggestions(rows, cats, [R('kramer corner', 'e', { status: 'dismissed' })])).toEqual([]) // turned down: not offered again
+    expect(learnedSuggestions(rows, cats, [R('kramer corner', 'e')])).toEqual([]) // already a rule
+    expect(learnedSuggestions(rows, [{ ...C('e', 'Eating out'), archived: true }], [])).toEqual([])
+  })
+
+  it('checks a rule before saving', () => {
+    const parse = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null }
+    const ok = checkRule({ pattern: '  Sportclub ', min: '', max: '120,50', category: 'f', tag: '', annual: true }, parse)
+    expect(ok).toEqual({ pattern: 'sportclub', min_cents: null, max_cents: 12050, category_id: 'f', tag_id: null, annual_fee: true })
+    for (const bad of [{ pattern: 'a' }, { pattern: 'x'.repeat(61) }, { min: 'abc' }, { max: '-1' }, { min: '50', max: '10' }, { category: '' }])
+      expect(typeof checkRule({ pattern: 'sportclub', min: '', max: '', category: 'f', tag: '', annual: false, ...bad }, parse)).toBe('string')
   })
 })

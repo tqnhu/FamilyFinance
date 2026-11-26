@@ -71,6 +71,7 @@ Supabase generates the REST API from the database. The app uses three kinds of c
 | `categories` | the whole family | parents, directly |
 | `expenses` | parents: all; children: their own | add: anyone, own rows. Edit and delete: children own, parents any. Bill payments are not editable directly. |
 | `tags` | the whole family | any member can create; parents rename, archive, delete |
+| `classification_rules` | the whole family (children get suggestions too) | parents only, directly; at most 300 per family |
 | `bills` | parents only | parents, directly |
 | `bill_payments` | parents only | `mark_bill_paid()`, `unmark_bill_paid()` only |
 | `allowances`, `jar_entries`, `purchase_requests` | parents: all; children: their own | functions only (no direct writes) |
@@ -117,6 +118,8 @@ erDiagram
   FAMILIES ||--o{ MEMBERS : has
   FAMILIES ||--o{ CATEGORIES : has
   FAMILIES ||--o{ TAGS : has
+  FAMILIES ||--o{ CLASSIFICATION_RULES : has
+  CATEGORIES ||--o{ CLASSIFICATION_RULES : "puts expenses in"
   FAMILIES ||--o{ EXPENSES : has
   FAMILIES ||--o{ BILLS : has
   FAMILIES ||--o{ GOALS : has
@@ -163,6 +166,12 @@ erDiagram
   TAGS { uuid id PK
     text name
     bool archived }
+  CLASSIFICATION_RULES { uuid id PK
+    text pattern
+    int min_cents
+    int max_cents
+    bool annual_fee
+    text status }
   BILLS { uuid id PK
     text name
     int amount_cents
@@ -316,7 +325,7 @@ sequenceDiagram
   Note over A,D: Monthly fees now count in Home, the month review and category pages.<br/>Yearly bills count in the Year view and tag totals.
 ```
 
-**Suggesting categories** (`lib/classify.ts`) runs in the browser: the family's own latest 1,000 categorised notes are turned into a word index, and a description is scored against it; if that is not conclusive, a built-in European shop list is matched against the family's category names. It returns a category, a confidence (high = pre-selected, medium = offered) and a one-line reason. It is used when adding an expense and in the bank import; nothing is sent to a third party and nothing is stored beyond the expenses themselves.
+**Suggesting categories** (`lib/classify.ts`) runs in the browser. In order: (1) the family's own rules (`classification_rules`: text to look for, optional amount range, category, tag, annual-fee flag; the most specific rule wins; `off` and `dismissed` rules are skipped); (2) the family's own latest 1,000 categorised notes, turned into a word index and scored; (3) a built-in European shop list matched against the family's category names. It returns a category, a confidence (high = pre-selected, medium = offered), a one-line reason and, for a rule, its tag and annual-fee flag. It is used when adding an expense and in the bank import. A parent who changes a suggestion can choose Remember (one rule per shop), and Plan → Rules lists patterns the family keeps repeating so a parent can turn them into rules. Nothing is sent to a third party.
 
 **CSV bank import** is entirely client-side until the last step: the file is read and parsed in the browser (never
 uploaded), columns, dates, signs and categories are suggested locally, duplicates are checked against existing expenses,
@@ -368,9 +377,9 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 ## 8. Operations
 
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
-  `supabase/migrations/002` to `014` in order (each is safe to run once).
-* **Tests:** 371 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 220 unit tests (`app/src/lib`), and about 510 browser checks against a stubbed backend (`app/e2e`).
+  `supabase/migrations/002` to `015` in order (each is safe to run once).
+* **Tests:** 394 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
+  storage), 235 unit tests (`app/src/lib`), and about 560 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits

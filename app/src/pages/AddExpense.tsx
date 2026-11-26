@@ -8,8 +8,9 @@ import { compressToJpeg } from '../lib/image'
 import { receiptUrl, removeReceipt, uploadReceipt } from '../lib/receipts'
 import { useTags } from '../lib/tags'
 import TagPicker from '../components/TagPicker'
-import { classify, type Suggestion } from '../lib/classify'
+import { classify, patternFromNote, type Suggestion } from '../lib/classify'
 import { useHistory } from '../lib/useHistory'
+import { useRules, useRuleActions } from '../lib/rules'
 
 type Props = {
   cats: Category[]
@@ -36,21 +37,44 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
   const [annual, setAnnual] = useState<boolean>(Boolean(expense?.annual_fee))
 
   // Suggesting a category from the note (new expenses only). A confident suggestion is pre-selected, a less certain one is only offered.
-  const history = useHistory(!editing)
+  const { history } = useHistory(!editing)
+  const { rules, reload: reloadRules } = useRules(!editing)
+  const ruleActions = useRuleActions(reloadRules)
+  const isParent = member?.role === 'parent'
+  const tagTouched = useRef(false), annualTouched = useRef(false)
+  const [declined, setDeclined] = useState('') // the "remember" prompt the person said no to
+  const [remembered, setRemembered] = useState('')
+  const [rememberErr, setRememberErr] = useState('')
+  const centsNow = parseEuro(amount) ?? undefined
   const [picked, setPicked] = useState(false) // once the person taps a category, the suggestion never overrides them
   const [auto, setAuto] = useState<Suggestion>(null)
   const autoSet = useRef('') // the category the suggestion selected, so it can be taken back when the note changes
   const catsRef = useRef(cats); catsRef.current = cats
   useEffect(() => {
     if (editing || picked) return
-    const s = note.trim().length >= 3 ? classify(note, history, catsRef.current) : null
+    const s = note.trim().length >= 3 ? classify(note, history, catsRef.current, { rules, cents: centsNow }) : null
     setAuto(s)
+    if (s?.source === 'rule') { // a family rule can also say which tag, and that it is an annual fee
+      if (s.tagId && !tagTouched.current) setTag(s.tagId)
+      if (s.annualFee && !annualTouched.current) setAnnual(true)
+    }
     const sure = s?.confidence === 'high' ? s.categoryId : ''
     const before = autoSet.current // read now: the updater below runs later
     setCat(c => (sure ? sure : (c && c === before ? '' : c)))
     autoSet.current = sure
-  }, [note, history, editing, picked])
+  }, [note, history, rules, centsNow, editing, picked])
   const suggestedCat = auto ? cats.find(c => c.id === auto.categoryId) : undefined
+  // Choosing a different category than suggested: parents may turn that into a rule
+  const pattern = !editing && picked && isParent && auto && cat && auto.categoryId !== cat ? (auto.source === 'keyword' && auto.matched ? auto.matched : patternFromNote(note)) : null // a known shop is remembered by its name alone, not with its town
+  const promptKey = pattern ? `${pattern}|${cat}` : ''
+  const chosenCat = cats.find(c => c.id === cat)
+  async function remember() {
+    if (!pattern || !cat) return
+    setRememberErr('')
+    const err = await ruleActions.add({ pattern, min_cents: null, max_cents: null, category_id: cat, tag_id: null, annual_fee: false })
+    if (err) return setRememberErr(err)
+    setRemembered(promptKey)
+  }
   const { tags, create: createTag } = useTags()
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -147,6 +171,19 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
             <button type="button" key={c.id} className={`chip ${cat === c.id ? 'on' : ''}`} onClick={() => { setPicked(true); setCat(c.id) }}>{c.emoji} {c.name}</button>
           ))}
         </div>
+        {pattern && chosenCat && suggestedCat && promptKey !== declined && promptKey !== remembered && (
+          <div className="suggest remember" role="group" aria-label="Remember this choice">
+            <strong>Remember this choice?</strong>
+            <span className="small">You changed the suggestion from {suggestedCat.name} to {chosenCat.name}. From now on, put expenses that mention "{pattern}" in {chosenCat.name}.</span>
+            <span className="muted small">{auto?.why}</span>
+            {rememberErr && <span className="error small">{rememberErr}</span>}
+            <div className="btn-row">
+              <button type="button" className="primary" onClick={() => void remember()}>Remember</button>
+              <button type="button" onClick={() => setDeclined(promptKey)}>Just this once</button>
+            </div>
+          </div>
+        )}
+        {promptKey && promptKey === remembered && <p className="muted small" role="status">Saved as a rule. You can see and change it in Plan, Rules.</p>}
         {!editing && !picked && auto && suggestedCat && (
           <div className="suggest" role="status">
             <div><span className={`chip-label ${auto.source === 'history' ? 'learned' : 'rule'}`}>{auto.source === 'history' ? 'Learned' : 'Rule'}</span>
@@ -157,9 +194,9 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
         )}
         <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
-        <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} />
+        <TagPicker tags={tags} value={tag} onChange={v => { tagTouched.current = true; setTag(v) }} onCreate={createTag} />
         <label className="annual-opt">
-          <input type="checkbox" checked={annual} onChange={e => setAnnual(e.target.checked)} />
+          <input type="checkbox" checked={annual} onChange={e => { annualTouched.current = true; setAnnual(e.target.checked) }} />
           <span>Annual fee<small className="muted"> Paid once a year (insurance, membership). Not counted as monthly spending.</small></span>
         </label>
 

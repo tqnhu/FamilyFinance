@@ -71,7 +71,28 @@ function hasKeyword(text: string, k: string): boolean {
 }
 
 export type Confidence = 'high' | 'medium'
-export type Suggestion = { categoryId: string; source: 'history' | 'keyword'; confidence: Confidence; why: string } | null
+export type Suggestion = {
+  categoryId: string; source: 'rule' | 'history' | 'keyword'; confidence: Confidence; why: string
+  tagId?: string | null; annualFee?: boolean // only a family rule can also set these
+  matched?: string // the starter keyword that matched, a good text for a rule of the family's own
+} | null
+
+/** A family rule (a row of classification_rules). */
+export type Rule = {
+  id: string; pattern: string; min_cents: number | null; max_cents: number | null
+  category_id: string; tag_id: string | null; annual_fee: boolean; status: 'on' | 'off' | 'dismissed'
+}
+
+/** How patterns and descriptions are compared: lower case, no accents, single spaces. */
+export const normalizeText = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim()
+
+/** Does this family rule apply to a description (and amount, when known)? Same word-boundary behaviour as the starter rules. */
+export function ruleMatches(rule: Pick<Rule, 'pattern' | 'min_cents' | 'max_cents'>, desc: string, cents?: number): boolean {
+  if (!hasKeyword(' ' + normalizeText(desc) + ' ', rule.pattern)) return false
+  if (rule.min_cents === null && rule.max_cents === null) return true
+  if (cents === undefined) return false // an amount rule waits until there is an amount
+  return (rule.min_cents === null || cents >= rule.min_cents) && (rule.max_cents === null || cents <= rule.max_cents)
+}
 
 const plural = (n: number) => (n === 1 ? 'expense' : 'expenses')
 
@@ -80,8 +101,16 @@ const plural = (n: number) => (n === 1 ? 'expense' : 'expenses')
  * High confidence: the strongest word was seen 3 or more times and nearly always in this category, or a starter rule matched.
  * Medium: the family's history points here but on thinner evidence (a word seen twice, or two words once each).
  */
-export function classify(desc: string, history: History, cats: Category[]): Suggestion {
+export function classify(desc: string, history: History, cats: Category[], opts: { rules?: Rule[]; cents?: number } = {}): Suggestion {
   const valid = new Map(cats.filter(c => !c.archived).map(c => [c.id, c]))
+  // 0. the family's own rules come first. The most specific one wins: an amount range, then the longer pattern.
+  const mine = (opts.rules ?? []).filter(r => r.status === 'on' && valid.has(r.category_id) && ruleMatches(r, desc, opts.cents))
+    .sort((a, b) => Number(b.min_cents !== null || b.max_cents !== null) - Number(a.min_cents !== null || a.max_cents !== null) || b.pattern.length - a.pattern.length)
+  if (mine.length) {
+    const r = mine[0], name = valid.get(r.category_id)!.name
+    return { categoryId: r.category_id, source: 'rule', confidence: 'high', tagId: r.tag_id, annualFee: r.annual_fee,
+      why: `Your rule: "${r.pattern}" goes to ${name}${r.annual_fee ? ', as an annual fee' : ''}.` }
+  }
   // 1. what this family did before: each known word votes for its categories, weighted by how consistent it was
   const score = new Map<string, number>()
   const top = new Map<string, { word: string; n: number; purity: number }>() // the word that argues most strongly for a category
@@ -115,7 +144,45 @@ export function classify(desc: string, history: History, cats: Category[]): Sugg
     if (c.archived) continue
     const kind = kindOf(c.name); if (!kind) continue
     const hit = STARTER_RULES[kind].find(k => hasKeyword(text, k))
-    if (hit) return { categoryId: c.id, source: 'keyword', confidence: 'high', why: `Starter rule: "${hit.trim()}" is usually ${c.name}.` }
+    if (hit) return { categoryId: c.id, source: 'keyword', confidence: 'high', matched: hit.trim(), why: `Starter rule: "${hit.trim()}" is usually ${c.name}.` }
   }
   return null
+}
+
+/** The part of a note that names the shop: its first two meaningful words, as long as they appear together in the note. */
+export function patternFromNote(note: string): string | null {
+  const text = ' ' + normalizeText(note) + ' '
+  const t = tokens(note)
+  const two = t.slice(0, 2).join(' ')
+  if (t.length >= 2 && text.includes(' ' + two + ' ')) return two
+  return t[0] && t[0].length >= 4 ? t[0] : null
+}
+
+export type Learned = { pattern: string; categoryId: string; count: number }
+
+/**
+ * Patterns the family keeps filing the same way and has not turned into a rule yet:
+ * seen at least 3 times, and at least 80% of the time in one category. Dismissed or existing rules, and shops the
+ * starter rules already place in that category, are left out.
+ */
+export function learnedSuggestions(expenses: { note: string; category_id: string | null }[], cats: Category[], rules: Rule[], max = 5): Learned[] {
+  const valid = new Map(cats.filter(c => !c.archived).map(c => [c.id, c]))
+  const groups = new Map<string, Map<string, number>>()
+  for (const e of expenses) {
+    if (!e.note || !e.category_id || !valid.has(e.category_id)) continue
+    const p = patternFromNote(e.note); if (!p) continue
+    const m = groups.get(p) ?? new Map<string, number>()
+    m.set(e.category_id, (m.get(e.category_id) ?? 0) + 1); groups.set(p, m)
+  }
+  const out: Learned[] = []
+  for (const [pattern, m] of groups) {
+    const total = [...m.values()].reduce((a, b) => a + b, 0)
+    const [cat, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0]
+    if (total < 3 || n / total < 0.8) continue
+    if (rules.some(r => r.pattern === pattern && r.min_cents === null && r.max_cents === null)) continue // already a rule, or turned down
+    const starter = classify(pattern, new Map(), [valid.get(cat)!])
+    if (starter && starter.categoryId === cat) continue // the starter rules already know this one
+    out.push({ pattern, categoryId: cat, count: n })
+  }
+  return out.sort((a, b) => b.count - a.count || a.pattern.localeCompare(b.pattern)).slice(0, max)
 }

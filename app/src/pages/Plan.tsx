@@ -7,10 +7,11 @@ import { FREQ, MONTHS, UPCOMING_DAYS, URGENCY_ICON, comingUp, dueList, dueText, 
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
 import ImportTab from './ImportTab'
+import RulesTab from './RulesTab'
 import TagPicker from '../components/TagPicker'
 import { useTags } from '../lib/tags'
 
-type Tab = 'budgets' | 'bills' | 'import'
+type Tab = 'budgets' | 'bills' | 'import' | 'rules'
 
 export default function Plan() {
   const [params, setParams] = useSearchParams()
@@ -19,14 +20,15 @@ export default function Plan() {
   const go = (t: Tab) => setParams(t === 'budgets' ? {} : { tab: t })
   return (
     <>
-      <div className="seg" role="tablist">
-        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import']] as const).map(([id, label]) => (
+      <div className="seg four" role="tablist">
+        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import'], ['rules', 'Rules']] as const).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go(id)}>{label}</button>
         ))}
       </div>
       {tab === 'budgets' && <BudgetsTab />}
       {tab === 'bills' && <BillsTab />}
       {tab === 'import' && <ImportTab />}
+      {tab === 'rules' && <RulesTab />}
     </>
   )
 }

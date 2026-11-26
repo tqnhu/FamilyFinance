@@ -206,3 +206,12 @@ label.imp-annual { display:flex; align-items:center; gap:8px; margin:6px 0 0; fo
 .suggest .chip { margin-top:2px }
 .imp-why { display:flex; flex-wrap:wrap; align-items:center; gap:2px 0; margin-top:4px }
 p.sorted { margin:0 0 8px }
+
+/* Plan → Rules */
+.rule-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:6px 12px; align-items:center } .rule-row.off { opacity:.6 }
+.rule-row .btn-row { grid-column:1 / -1 }
+button.rule-main { display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; background:none; border:0; padding:8px 0; min-height:48px; color:var(--fg); overflow-wrap:anywhere }
+label.rule-switch { display:flex; align-items:center; gap:8px; margin:0; min-height:44px } label.rule-switch input { width:40px; height:22px; margin:0; padding:0; accent-color:var(--brand) }
+.rule-legend { text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin:8px 0 2px }
+details summary { cursor:pointer; min-height:44px; display:flex; flex-direction:column; justify-content:center } button.link.danger { color:var(--bad) }
+.suggest.remember .btn-row { width:100%; margin:4px 0 0 } .suggest.remember .btn-row button { flex:1 }
