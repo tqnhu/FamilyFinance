@@ -35,6 +35,7 @@ begin
   return new;
 end $$;
 create trigger expense_tags_limit before insert on expense_tags for each row execute function limit_expense_tags();
+revoke execute on function limit_expense_tags() from public, anon, authenticated;
 
 -- Existing single tags move over; the old column goes.
 insert into expense_tags (expense_id, tag_id) select id, tag_id from expenses where tag_id is not null;
