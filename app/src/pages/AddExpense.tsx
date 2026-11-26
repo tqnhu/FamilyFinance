@@ -31,6 +31,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
   const [note, setNote] = useState(expense?.note ?? '')
   const [date, setDate] = useState(expense?.spent_on ?? defaultDate ?? today())
   const [tag, setTag] = useState<string>(expense?.tag_id ?? '')
+  const [annual, setAnnual] = useState<boolean>(Boolean(expense?.annual_fee))
   const { tags, create: createTag } = useTags()
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -63,7 +64,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     setBusy(true); setErr('')
 
     if (expense) {
-      const patch: Record<string, unknown> = { ...changes(expense, { cents, cat, note: note.trim(), date, tag }) }
+      const patch: Record<string, unknown> = { ...changes(expense, { cents, cat, note: note.trim(), date, tag, annual }) }
       let newPath: string | null = null
       try {
         if (photo) { newPath = await uploadReceipt(expense.family_id ?? member!.family_id, expense.id, photo.blob); patch.receipt_path = newPath }
@@ -86,6 +87,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     const { error } = await supabase.from('expenses').insert({
       id, family_id: member!.family_id, member_id: member!.user_id,
       category_id: cat, amount_cents: cents, note: note.trim(), spent_on: date, tag_id: tag || null,
+      ...(annual ? { annual_fee: true } : {}),
     })
     if (error) { setBusy(false); return setErr(error.message) }
     let photoProblem = ''
@@ -129,6 +131,10 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
         <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
         <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} />
+        <label className="annual-opt">
+          <input type="checkbox" checked={annual} onChange={e => setAnnual(e.target.checked)} />
+          <span>Annual fee<small className="muted"> Paid once a year (insurance, membership). Not counted as monthly spending.</small></span>
+        </label>
 
         <div className="receipt">
           {shownUrl && <a href={shownUrl} target="_blank" rel="noreferrer" title="Open the photo"><img src={shownUrl} alt="Receipt" /></a>}

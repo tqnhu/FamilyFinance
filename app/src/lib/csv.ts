@@ -163,6 +163,9 @@ export function detectSign(t: Table, m: Mapping): 'negative' | 'positive' {
 }
 
 export type ParsedRow = { line: number; date: string; cents: number; note: string }
+
+/** Descriptions that say the payment covers a year (English and Dutch bank wording). Only a hint: the person decides. */
+export const looksAnnual = (note: string): boolean => /\b(annual|annually|yearly|per year|a year)\b|\bjaarlijks\w*|\bjaar(premie|bijdrage|abonnement|factuur)\w*/i.test(note)
 export type Skipped = { income: number; unreadable: number; zero: number }
 
 /** Keeps the expenses (money out) as positive cents. Anything else is counted, not imported. */

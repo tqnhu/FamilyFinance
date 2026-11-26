@@ -9,7 +9,7 @@ import type { Category, Expense } from '../lib/types'
 import FlowChart from '../components/FlowChart'
 
 type Scope = 'month' | 'year'
-type Row = Pick<Expense, 'category_id' | 'tag_id' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'spent_on'>
+type Row = Pick<Expense, 'category_id' | 'tag_id' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on'>
 
 const monthName = (d: Date, style: 'long' | 'short' = 'long') => d.toLocaleDateString('en-IE', { month: style })
 
@@ -52,7 +52,7 @@ function MonthBreakdown({ scopeBar }: { scopeBar: (extra?: React.ReactNode) => R
     let alive = true
     setRows(null)
     Promise.all([
-      supabase.from('expenses').select('category_id, tag_id, amount_cents, spent_on, bill_id, monthly_fee').gte('spent_on', w.prevStart).lt('spent_on', w.end),
+      supabase.from('expenses').select('*').gte('spent_on', w.prevStart).lt('spent_on', w.end),
       supabase.from('categories').select('*'),
       supabase.from('tags').select('id, name'),
     ]).then(([e, c, t]) => {
@@ -120,7 +120,7 @@ function MonthBreakdown({ scopeBar }: { scopeBar: (extra?: React.ReactNode) => R
               ? <FlowChart slices={model.slices} total={model.total} title={caption} />
               : <p className="muted small">Tap a category below to see what is inside it.</p>}
             {model.separateBills > 0 && (
-              <p className="muted small bd-apart">Yearly and other non-monthly bills paid this month ({euroTidy(model.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>
+              <p className="muted small bd-apart">Yearly bills and annual fees this month ({euroTidy(model.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>
             )}
           </section>
 
@@ -201,7 +201,7 @@ function YearBreakdownView({ scopeBar }: { scopeBar: (extra?: React.ReactNode) =
             <div className="big">{euroTidy(model.total)}</div>
             <p className="muted small">About {euroTidy(Math.round(model.total / monthsCounted))} a month</p>
             <ShareBar slices={model.slices} label={`Share of the year's spending: ${model.slices.map(s => `${s.name} ${s.pct.toFixed(1)}%`).join(', ')}`} />
-            {model.separateBills > 0 && <p className="muted small bd-apart">Yearly and other non-monthly bills ({euroTidy(model.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>}
+            {model.separateBills > 0 && <p className="muted small bd-apart">Yearly bills and annual fees ({euroTidy(model.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>}
           </section>
           <section className="card">
             <div className="row"><h2>By category</h2><span className="muted small">Share of {euroTidy(model.total)}</span></div>

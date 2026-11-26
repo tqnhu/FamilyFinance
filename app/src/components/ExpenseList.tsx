@@ -120,6 +120,7 @@ export default function ExpenseList({ expenses, cats, title, nameOf, canEdit, on
               <div className="muted small">{x.spent_on} · {nameOf(x.member_id)}
                 {x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}
                 {x.bill_id && <span className="tag">{x.monthly_fee ? 'monthly bill' : 'bill'}</span>}
+                {x.annual_fee && <span className="tag" title="Not counted as monthly spending">annual fee</span>}
                 {tagName(x.tag_id) && <span className="tag tagname">#{tagName(x.tag_id)}</span>}</div>
             </div>
             <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && !selecting && <span className="muted small"> ✎</span>}</div>

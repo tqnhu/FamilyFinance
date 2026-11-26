@@ -192,3 +192,8 @@ button.bd-row, .bd-row.static { display:grid; grid-template-columns:12px minmax(
 .bd-mix { display:flex; gap:4px; height:140px; margin-top:6px } .bd-col { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; border-radius:3px; overflow:hidden }
 .bd-months { display:flex; gap:4px; font-size:.7rem; color:var(--muted); text-align:center; margin-top:4px } .bd-months span { flex:1 }
 svg.flow { width:100%; height:auto; display:block; margin-top:8px } .flow .flow-total { fill:var(--fg) } .flow-name { font-size:13px; font-weight:700; fill:var(--fg) } .flow-val { font-size:12px; fill:var(--fg) }
+
+/* Annual fee option (expense form and bank import) */
+label.annual-opt { display:flex; align-items:flex-start; gap:12px; margin:12px 0; color:var(--fg); font-size:.95rem }
+label.annual-opt input { width:22px; height:22px; margin:2px 0 0; flex:none; accent-color:var(--brand) } label.annual-opt small { display:block; font-size:.8rem }
+label.imp-annual { display:flex; align-items:center; gap:8px; margin:6px 0 0; font-size:.85rem; color:var(--fg) }

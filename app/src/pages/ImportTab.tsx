@@ -3,14 +3,14 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 import { euro } from '../lib/money'
 import {
-  buildHistory, decodeCsv, detectDateOrder, detectMapping, detectSign, markDuplicates, parseCsv, readExpenses, suggestCategory,
+  buildHistory, decodeCsv, detectDateOrder, detectMapping, detectSign, looksAnnual, markDuplicates, parseCsv, readExpenses, suggestCategory,
   type DateOrder, type Mapping, type Table,
 } from '../lib/csv'
 import type { Category } from '../lib/types'
 import { useTags } from '../lib/tags'
 import TagPicker from '../components/TagPicker'
 
-type Edit = { selected?: boolean; cat?: string | null }
+type Edit = { selected?: boolean; cat?: string | null; annual?: boolean }
 type Past = { batch: string; count: number; total: number; first: string; last: string; created: string }
 const CHUNK = 200
 
@@ -85,13 +85,16 @@ export default function ImportTab() {
     return read.rows.map((r, i) => {
       const sug = suggestCategory(r.note, history, cats)
       const e = edits[r.line] ?? {}
-      return { ...r, dup: dups[i], suggested: sug, cat: e.cat !== undefined ? e.cat : (sug?.categoryId ?? otherCat), selected: e.selected ?? !dups[i] }
+      const hint = looksAnnual(r.note) // the description says "annual", "yearly" and so on: ticked to start with, the person decides
+      return { ...r, dup: dups[i], suggested: sug, cat: e.cat !== undefined ? e.cat : (sug?.categoryId ?? otherCat), selected: e.selected ?? !dups[i], annual: e.annual ?? hint, hint }
     })
   }, [read, existing, history, cats, edits, otherCat])
 
   const chosen = rows.filter(r => r.selected)
   const missing = chosen.filter(r => !r.cat).length
   const total = chosen.reduce((s, r) => s + r.cents, 0)
+  const annualChosen = chosen.filter(r => r.annual)
+  const annualTotal = annualChosen.reduce((s, r) => s + r.cents, 0)
   const setEdit = (line: number, e: Edit) => setEdits(prev => ({ ...prev, [line]: { ...prev[line], ...e } }))
 
   async function doImport() {
@@ -103,6 +106,7 @@ export default function ImportTab() {
       const part = chosen.slice(i, i + CHUNK).map(r => ({
         family_id: member.family_id, member_id: member.user_id, category_id: r.cat, amount_cents: r.cents,
         note: r.note, spent_on: r.date, import_batch: batch, tag_id: tag || null,
+        ...(r.annual ? { annual_fee: true } : {}), // only sent when ticked, so a normal import never depends on it
       }))
       const { error } = await supabase.from('expenses').insert(part)
       if (error) {
@@ -193,6 +197,10 @@ export default function ImportTab() {
                 <div className="imp-main">
                   <div className="imp-note">{r.note || '(no description)'}</div>
                   <div className="muted small">{r.date}{r.dup && <span className="tag warn">possible duplicate</span>}</div>
+                  <label className="imp-annual">
+                    <input type="checkbox" checked={r.annual} aria-label={`Annual fee: ${r.note || 'row'} on ${r.date}`} onChange={e => setEdit(r.line, { annual: e.target.checked })} />
+                    <span>Annual fee{r.hint && edits[r.line]?.annual === undefined ? ' ✨ looks like one' : ''}</span>
+                  </label>
                 </div>
                 <div className="imp-side">
                   <strong>{euro(r.cents)}</strong>
@@ -206,6 +214,9 @@ export default function ImportTab() {
             ))}
           </div>
           <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} label="Tag all these expenses (optional), e.g. a holiday statement" />
+          {annualChosen.length > 0 && (
+            <p className="muted small" role="status">{annualChosen.length} marked as {annualChosen.length === 1 ? 'an annual fee' : 'annual fees'} ({euro(annualTotal)}): kept out of monthly spending, budgets and the breakdown. You can change this later by editing the expense.</p>
+          )}
           {missing > 0 && <p className="error">{missing} selected {missing === 1 ? 'expense needs' : 'expenses need'} a category.</p>}
           <button className="primary" disabled={busy || !chosen.length || missing > 0} onClick={doImport}>
             {busy ? 'Importing…' : `Import ${chosen.length} ${chosen.length === 1 ? 'expense' : 'expenses'} (${euro(total)})`}

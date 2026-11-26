@@ -880,3 +880,18 @@ grant execute on function create_family(text, text), join_family(text, text), fa
 -- Both only use built-in functions and schema-qualified names, so nothing they do changes.
 alter function normalize_code(text) set search_path = '';
 alter function stamp_expense_edit() set search_path = '';
+
+-- ===== Annual fee flag (migrations/014_annual_fee.sql) =====
+alter table expenses add column annual_fee boolean not null default false;
+grant insert (annual_fee) on expenses to authenticated;
+grant update (annual_fee) on expenses to authenticated;
+
+-- "is_bill" now means "kept apart from everyday spending": a yearly-type bill payment or an expense marked as an annual fee.
+create or replace function year_summary(y integer) returns table (month integer, category_id uuid, is_bill boolean, total_cents integer)
+language sql stable security definer set search_path = public as $$
+  select extract(month from e.spent_on)::integer, e.category_id, ((e.bill_id is not null and not e.monthly_fee) or e.annual_fee), sum(e.amount_cents)::integer
+  from expenses e
+  where is_parent() and e.family_id = my_family()
+    and e.spent_on >= make_date(y, 1, 1) and e.spent_on < make_date(y + 1, 1, 1)
+  group by 1, 2, 3
+$$;

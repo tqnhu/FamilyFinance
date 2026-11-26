@@ -1,13 +1,14 @@
 import type { Expense } from './types'
 
 /** What changed between the stored expense and the form, as an update payload (empty = nothing to save). */
-export function changes(old: Expense, now: { cents: number; cat: string; note: string; date: string; tag?: string }) {
-  const out: { amount_cents?: number; category_id?: string; note?: string; spent_on?: string; tag_id?: string | null } = {}
+export function changes(old: Expense, now: { cents: number; cat: string; note: string; date: string; tag?: string; annual?: boolean }) {
+  const out: { amount_cents?: number; category_id?: string; note?: string; spent_on?: string; tag_id?: string | null; annual_fee?: boolean } = {}
   if (now.cents !== old.amount_cents) out.amount_cents = now.cents
   if (now.cat && now.cat !== old.category_id) out.category_id = now.cat
   if (now.note !== old.note) out.note = now.note
   if (now.date !== old.spent_on) out.spent_on = now.date
   if (now.tag !== undefined && now.tag !== (old.tag_id ?? '')) out.tag_id = now.tag || null // '' = no tag
+  if (now.annual !== undefined && now.annual !== Boolean(old.annual_fee)) out.annual_fee = now.annual
   return out
 }
 
@@ -15,7 +16,13 @@ export function changes(old: Expense, now: { cents: number; cat: string; note: s
  * A bill payment that is kept out of everyday spending and the monthly budgets: yearly, half-yearly and quarterly
  * bills. A monthly fee is ordinary spending in the month it was charged, so it is not "separate".
  */
-export const isSeparateBill = (x: Pick<Expense, 'bill_id' | 'monthly_fee'>) => Boolean(x.bill_id) && !x.monthly_fee
+export const isBillPayment = (x: Pick<Expense, 'bill_id' | 'monthly_fee'>) => Boolean(x.bill_id) && !x.monthly_fee
+
+/**
+ * Everything kept out of everyday spending, the monthly total, the budgets and the category shares: yearly-type bill payments,
+ * and expenses marked as an annual fee (for example a yearly membership that came in through a bank import).
+ */
+export const isSeparateBill = (x: Pick<Expense, 'bill_id' | 'monthly_fee' | 'annual_fee'>) => isBillPayment(x) || Boolean(x.annual_fee)
 
 /* ---------- Home list: tag filter and bulk tagging ---------- */
 
@@ -23,12 +30,13 @@ export const isSeparateBill = (x: Pick<Expense, 'bill_id' | 'monthly_fee'>) => B
 export const NO_TAG = '__none'
 
 /**
- * What the list shows. With no filter: everyday spending (yearly bills are tracked on the Plan page).
+ * What the list shows. With no filter: everyday spending and annual fees (marked as such, so they can be found and corrected);
+ * yearly bill payments are tracked on the Plan page.
  * With a tag chosen: every expense with that tag, bill payments included, so the list matches the tag's total.
  */
 export function visibleExpenses<T extends Pick<Expense, 'bill_id' | 'monthly_fee' | 'tag_id'>>(all: T[], filter: string): T[] {
-  if (filter === '') return all.filter(x => !isSeparateBill(x))
-  if (filter === NO_TAG) return all.filter(x => !isSeparateBill(x) && !x.tag_id)
+  if (filter === '') return all.filter(x => !isBillPayment(x))
+  if (filter === NO_TAG) return all.filter(x => !isBillPayment(x) && !x.tag_id)
   return all.filter(x => x.tag_id === filter)
 }
 

@@ -37,7 +37,7 @@ export function newestFirst(a: Pick<Expense, 'spent_on' | 'created_at'>, b: Pick
  * The expenses Home counts for a category: everyday spending, monthly fees included, yearly bill payments left out.
  * This is the rule behind the number on the Home screen, so a category's detail view adds up to it.
  */
-export const categoryExpenses = <T extends Pick<Expense, 'category_id' | 'bill_id' | 'monthly_fee' | 'spent_on' | 'created_at'>>(all: T[], categoryId: string): T[] =>
+export const categoryExpenses = <T extends Pick<Expense, 'category_id' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on' | 'created_at'>>(all: T[], categoryId: string): T[] =>
   all.filter(x => x.category_id === categoryId && !isSeparateBill(x)).sort(newestFirst)
 
 /** The most recent few (default 3) for the hover preview. */
@@ -45,6 +45,6 @@ export const latest = <T extends Pick<Expense, 'spent_on' | 'created_at'>>(list:
 
 export const sumCents = (list: Pick<Expense, 'amount_cents'>[]) => list.reduce((s, x) => s + x.amount_cents, 0)
 
-/** Yearly and other non-monthly bill payments filed under a category (kept out of the numbers above). */
-export const separateBillsIn = <T extends Pick<Expense, 'category_id' | 'bill_id' | 'monthly_fee'>>(all: T[], categoryId: string): T[] =>
+/** Yearly and other non-monthly bill payments, and annual fees, filed under a category (kept out of the numbers above). */
+export const separateBillsIn = <T extends Pick<Expense, 'category_id' | 'bill_id' | 'monthly_fee' | 'annual_fee'>>(all: T[], categoryId: string): T[] =>
   all.filter(x => x.category_id === categoryId && isSeparateBill(x))

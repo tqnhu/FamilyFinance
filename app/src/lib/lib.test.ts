@@ -3,6 +3,7 @@ import { euroTidy, monthStart, nextMonthStart, parseEuro } from './money'
 import { estimate, neededPerWeek } from './goals'
 import { review } from './review'
 import type { Category, Expense } from './types'
+import { looksAnnual } from './csv'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
 import { flowLayout } from './flow'
 
@@ -176,7 +177,7 @@ describe('niceAxis', () => {
   it('has a sensible empty case', () => expect(niceAxis(0).ticks[0]).toBe(0))
 })
 
-import { changes } from './expense'
+import { changes, isBillPayment } from './expense'
 describe('expense edit payload', () => {
   const old: Expense = { id: 'x', member_id: 'm', category_id: 'a', amount_cents: 1250, note: 'lunch', spent_on: '2026-11-03' }
   const same = { cents: 1250, cat: 'a', note: 'lunch', date: '2026-11-03' }
@@ -658,5 +659,41 @@ describe('euroTidy', () => {
     expect(euroTidy(72000)).toBe('€720'); expect(euroTidy(8000)).toBe('€80'); expect(euroTidy(450)).toBe('€4.50'); expect(euroTidy(0)).toBe('€0')
     expect(euroTidy(12345)).toBe('€123') // from 100 euro up, cents are noise
     expect(euroTidy(-3500)).toBe('-€35')
+  })
+})
+
+describe('annual fee flag', () => {
+  const old = { id: 'e', member_id: 'p', category_id: 'c', amount_cents: 9900, note: 'club', spent_on: '2026-09-03' } as Expense
+  it('is kept apart from everyday spending, like a yearly bill', () => {
+    expect(isSeparateBill({ bill_id: null, monthly_fee: false, annual_fee: true })).toBe(true)
+    expect(isSeparateBill({ bill_id: null, monthly_fee: false, annual_fee: false })).toBe(false)
+    expect(isSeparateBill({ bill_id: null })).toBe(false) // rows from before the flag existed have no value
+    expect(isSeparateBill({ bill_id: 'b', monthly_fee: true, annual_fee: false })).toBe(false) // a monthly fee still counts
+    expect(isBillPayment({ bill_id: null, monthly_fee: false })).toBe(false) // an annual fee is not a bill payment (it can be edited)
+    expect(isBillPayment({ bill_id: 'b', monthly_fee: false })).toBe(true)
+  })
+  it('stays visible in the lists so it can be found and corrected', () => {
+    const all = [{ id: 1, bill_id: null, monthly_fee: false, tag_id: null, annual_fee: true }, { id: 2, bill_id: null, monthly_fee: false, tag_id: null }, { id: 3, bill_id: 'b', monthly_fee: false, tag_id: null }]
+    expect(visibleExpenses(all, '').map(x => x.id)).toEqual([1, 2]) // the yearly bill payment is on the Plan page
+    expect(visibleExpenses(all, NO_TAG).map(x => x.id)).toEqual([1, 2])
+  })
+  it('is left out of category numbers and listed with the kept-apart ones', () => {
+    const rows = [{ category_id: 'c', bill_id: null, monthly_fee: false, annual_fee: true, spent_on: '2026-09-03' }, { category_id: 'c', bill_id: null, monthly_fee: false, annual_fee: false, spent_on: '2026-09-04' }]
+    expect(categoryExpenses(rows, 'c')).toHaveLength(1); expect(separateBillsIn(rows, 'c')).toHaveLength(1)
+  })
+  it('is left out of the breakdown shares and reported apart', () => {
+    const x = (cat: string, cents: number, o: Record<string, unknown> = {}) => ({ category_id: cat, amount_cents: cents, tag_id: null, bill_id: null, monthly_fee: false, annual_fee: false, spent_on: '2026-09-03', ...o })
+    const b = breakdown([x('a', 1000), x('a', 9900, { annual_fee: true })], null, [{ id: 'a', name: 'A', emoji: '•', budget_cents: 0 }], [])
+    expect(b.total).toBe(1000); expect(b.separateBills).toBe(9900)
+  })
+  it('is only sent when it changed', () => {
+    expect(changes(old, { cents: 9900, cat: 'c', note: 'club', date: '2026-09-03', annual: false })).toEqual({}) // unchanged: nothing to save
+    expect(changes(old, { cents: 9900, cat: 'c', note: 'club', date: '2026-09-03', annual: true })).toEqual({ annual_fee: true })
+    expect(changes({ ...old, annual_fee: true }, { cents: 9900, cat: 'c', note: 'club', date: '2026-09-03', annual: false })).toEqual({ annual_fee: false })
+    expect(changes(old, { cents: 100, cat: 'c', note: 'club', date: '2026-09-03' })).toEqual({ amount_cents: 100 }) // callers that do not know about it send nothing
+  })
+  it('spots bank descriptions that say a payment covers a year', () => {
+    for (const d of ['ANWB annual fee 2026', 'Yearly membership Sportclub', 'insurance 480 per year', 'Jaarlijkse bijdrage', 'JAARPREMIE autoverzekering', 'Pay a year ahead']) expect(looksAnnual(d), d).toBe(true)
+    for (const d of ['Albert Heijn Amsterdam', 'Annualist Books', 'Monthly fee Spotify', 'Payment for yearbook photos', '']) expect(looksAnnual(d), d).toBe(false)
   })
 })

@@ -40,7 +40,7 @@ export default function Dashboard() {
   }, [offset])
   useEffect(() => { void load() }, [load])
 
-  // Monthly fees count like any other spending. Yearly, half-yearly and quarterly bills are tracked on the Plan page instead.
+  // Monthly fees count like any other spending. Yearly, half-yearly and quarterly bills are tracked on the Plan page instead, and expenses marked as annual fees are kept apart too.
   const everyday = expenses.filter(x => !isSeparateBill(x))
   const billsPaid = expenses.filter(isSeparateBill).reduce((s, x) => s + x.amount_cents, 0)
   const total = everyday.reduce((s, x) => s + x.amount_cents, 0)
@@ -70,7 +70,7 @@ export default function Dashboard() {
         <p className="muted">{isParent ? 'Family spending' : 'Your spending'} {isCurrent ? 'this month' : `in ${monthLabel}`}</p>
         <div className="big">{euro(total)}</div>
         {isParent && budget > 0 && <Bar spent={total} budget={budget} label={`of ${euro(budget)} budget${isCurrent ? ` · ${daysLeft} days left` : ''}`} />}
-        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly and other non-monthly bills paid {isCurrent ? 'this month' : 'that month'}.</p>}
+        {billsPaid > 0 && <p className="muted small">Not counted: {euro(billsPaid)} of yearly bills and annual fees {isCurrent ? 'this month' : 'that month'}.</p>}
       </section>
 
       {isParent && isCurrent && <DueSoon />}

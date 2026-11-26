@@ -54,6 +54,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 22 | Measure it: KPI queries, then first-party usage events | 🔜 Next | High (shows what to build next) | S for the queries (written), M for usage events | none |
 | 23 | Where the money goes: spending broken down by category, with shares | ✅ Done | High | M | none |
 | 24 | Income tracking (spending as a share of income, a savings slice) | 📋 Planned | Medium–high | M–L | A decision on how income is recorded |
+| 25 | Annual fees from a bank import kept out of monthly spending | ✅ Done | High | S–M | none |
 
 ## 2. Done in the latest release
 
@@ -104,6 +105,20 @@ A new **Breakdown** tab in Review (parents only) answers "where did the money go
 * **No database change.** Months read the expenses directly, the year reuses `year_summary`.
 * **Not included yet.** Spending is the whole (there is no income to compare with, see #24). The flow diagram stops at categories: tags are shown in the list. Months are read up to the usual 1,000-row limit (#20).
 * **Tests.** 16 new unit tests (rounding to 100, grouping, comparison windows, tags, year, flow geometry) and 52 browser checks.
+
+### #25 Annual fees marked on expenses (bank import fix) ✅
+
+**The problem.** A yearly payment that arrived through a bank import (an insurance, a club membership) was an ordinary expense, so it inflated that month's spending, budgets and shares. Only payments made through Plan → Bills were kept apart.
+
+**The fix.** Any expense can be marked as an **annual fee**. It then behaves like a yearly bill payment: left out of the month total, the budgets, the category pages and the Breakdown shares, and reported as "kept apart" instead (and in the Year view as a yearly bill).
+
+* **In the import review** every row has an "Annual fee" checkbox. It starts ticked when the description says annual, yearly, per year or jaarlijks (a hint only, marked with a sparkle, and your choice always wins). A line under the list says how many rows (and how much) will be kept apart.
+* **On the expense form**, new or existing, there is the same checkbox, so a mistake can be fixed later and a manual entry can be marked too.
+* **Still visible.** An annual fee stays in the Home and category lists with an "annual fee" label, so it can be found and un-marked. Home and the category page say how much is kept apart.
+* **Database.** Migration 014 adds `expenses.annual_fee` (off by default, so nothing existing changes) and makes `year_summary` report it as kept apart. The app only sends the field when it is ticked. **Apply migration 014 before using the checkbox.** Until then, ticking it fails with a clear error; everything else works.
+* **Rules.** Anyone can mark their own expenses, parents any, other families none. Bill payments cannot be flagged. Marking does not count as an "edit" in the edited-by stamp.
+* **Not covered.** Tag totals still include annual fees (they add up everything with that tag, bills included). Existing imported expenses are not flagged automatically; open one and tick the box.
+* **Tests.** 12 database checks, 6 unit tests and 33 browser checks.
 
 ## 3. The rest of the list
 
@@ -174,7 +189,7 @@ A new **Breakdown** tab in Review (parents only) answers "where did the money go
 * **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages, and a Breakdown of where the money goes with shares and a flow diagram.
 * **Accounts and family.** Forgot-password, an account menu with My profile and Family settings (name, members, invite codes with copy and a ready-made invitation, replacing leaked codes), forgiving invite codes.
 * **Security.** Row-level security on every table, column-level permissions, money rules inside the database, signed-out visitors limited to one function, checked against Supabase's security advisor.
-* **Quality.** 359 database checks, 205 unit tests and about 450 browser checks, plus architecture and user-journey documents.
+* **Quality.** 371 database checks, 211 unit tests and about 480 browser checks, plus architecture and user-journey documents.
 
 ## 6. Decisions log
 
@@ -187,6 +202,7 @@ A new **Breakdown** tab in Review (parents only) answers "where did the money go
 | Username sign-in | Kept, with the email lookup exposure | Convenient, and fine for a private family app | Before opening the app to strangers (#19) |
 | Bills | Monthly fees count as everyday spending, the rest are kept apart | One big payment should not wreck a month | A parent wants them counted too |
 | Breakdown tab | Named "Breakdown"; five biggest categories, the rest grouped; comparison with the previous month on by default | Reads best at phone width; the comparison answers "is this normal?" straight away | Families ask for other names or more slices |
+| Annual fees | A flag on any expense, kept apart like a yearly bill, still listed and editable | Simplest fix that also covers bank imports, with no new screens | Families want yearly bills on Plan to be created from an imported payment |
 | Breakdown scope | Spending only; income is planned later (#24) | The app has no income today | A parent asks to see spending against income |
 | Notifications | In-app badges now, email later | Email needs infrastructure and an email provider | #1 is done |
 | KPIs | First-party and family-level; north star is weekly engaged families; targets are provisional | Privacy for a family and children's app, and only a few families so far | There are enough families for the percentages to mean something |

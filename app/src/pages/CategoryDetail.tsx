@@ -88,7 +88,7 @@ export default function CategoryDetail({ categoryId }: { categoryId: string }) {
             ? `Last month: ${euro(before)} (${diff === 0 ? 'the same' : diff > 0 ? `${euro(diff)} more` : `${euro(-diff)} less`})`
             : total > 0 ? 'Nothing in this category last month.' : ''}
         </p>
-        {yearlyBills > 0 && <p className="muted small">Not counted: {euro(yearlyBills)} of yearly and other non-monthly bills in this category. They are on the Plan page.</p>}
+        {yearlyBills > 0 && <p className="muted small">Not counted: {euro(yearlyBills)} of yearly bills and annual fees in this category. Bills are on the Plan page; annual fees are in the list below.</p>}
       </section>
 
       <ExpenseList expenses={thisMonth.filter(x => x.category_id === categoryId)} cats={cats} title="Expenses" nameOf={nameOf} canEdit={canEdit}

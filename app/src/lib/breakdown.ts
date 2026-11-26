@@ -10,7 +10,7 @@ export const SLICE_COLORS = ['#0f766e', '#3b6fd4', '#a65f00', '#c2417a', '#7a5cc
 export const REST_COLOR = '#5b6d67'
 export const MAX_SLICES = 5
 
-type Row = Pick<Expense, 'category_id' | 'tag_id' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'spent_on'>
+type Row = Pick<Expense, 'category_id' | 'tag_id' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on'>
 type TagName = { id: string; name: string }
 
 export type Detail = { name: string; cents: number; pct: number; width: number }
