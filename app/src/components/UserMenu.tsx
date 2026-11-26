@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth'
 
-/** The person's name at the top left. It opens a menu to their profile, the family settings, and sign out. */
+/** The person's name at the top left. It opens a menu to their profile, the family settings, Configuration (tags and rules, parents only), and sign out. */
 export default function UserMenu() {
   const { member, family } = useAuth()
   const [open, setOpen] = useState(false)
@@ -49,6 +49,7 @@ export default function UserMenu() {
           </div>
           <Link role="menuitem" to="/settings?tab=profile">👤 My profile</Link>
           <Link role="menuitem" to="/settings?tab=family">🏠 Family settings</Link>
+          {member?.role === 'parent' && <Link role="menuitem" to="/settings?tab=config">⚙️ Configuration</Link>}
           <button role="menuitem" className="menu-out" onClick={() => supabase.auth.signOut()}>↩ Sign out</button>
         </div>
       )}
