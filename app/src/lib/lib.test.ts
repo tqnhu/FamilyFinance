@@ -7,7 +7,7 @@ import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES, learnedSuggestio
 import { checkRule } from './rules'
 import { applyBatches, tidyCandidates, undoBatches } from './tidy'
 import { pieLayout } from './pie'
-import { NO_TAG_CHOICE, allTimeFor, describeChoice, filterByTags, splitChoice, toggleChoice } from './tagfilter'
+import { NO_TAG_CHOICE, describeChoice, filterByTags, splitChoice, toggleChoice } from './tagfilter'
 import { budgetHint } from './budget'
 import { readChart } from './chartChoice'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
@@ -211,34 +211,34 @@ describe('joinMessage', () => {
   })
 })
 
-describe('expense changes with a tag', () => {
-  const old = { id: 'x', member_id: 'm', category_id: 'a', amount_cents: 100, note: '', spent_on: '2026-01-01', tag_id: 't1' }
-  const same = { cents: 100, cat: 'a', note: '', date: '2026-01-01' }
-  it('sends the tag only when it changed', () => {
-    expect(changes(old, { ...same, tag: 't1' })).toEqual({})
-    expect(changes(old, { ...same, tag: 't2' })).toEqual({ tag_id: 't2' })
+describe('expense changes leave tags alone', () => {
+  const old = { id: 'x', member_id: 'm', category_id: 'a', amount_cents: 100, note: '', spent_on: '2026-01-01', tag_ids: ['t1'] }
+  it('tags are saved on their own (expense_tags), so an unchanged form sends nothing', () => expect(changes(old, { cents: 100, cat: 'a', note: '', date: '2026-01-01' })).toEqual({}))
+})
+import { tagDiff, withTags } from './expenseTags'
+describe('tags per expense', () => {
+  it('tagDiff: what to add and what to take off', () => {
+    expect(tagDiff(['a', 'b'], ['b', 'c'])).toEqual({ add: ['c'], remove: ['a'] }); expect(tagDiff([], [])).toEqual({ add: [], remove: [] }); expect(tagDiff(['a'], ['a'])).toEqual({ add: [], remove: [] })
   })
-  it('an empty choice removes the tag (null), and an untagged expense stays untagged', () => {
-    expect(changes(old, { ...same, tag: '' })).toEqual({ tag_id: null })
-    expect(changes({ ...old, tag_id: null }, { ...same, tag: '' })).toEqual({})
-    expect(changes({ ...old, tag_id: undefined }, { ...same, tag: '' })).toEqual({})
+  it('withTags turns embedded join rows into tag_ids', () => {
+    expect(withTags([{ id: 1, expense_tags: [{ tag_id: 'a' }, { tag_id: 'b' }] }, { id: 2, expense_tags: [] }, { id: 3 }])).toEqual([{ id: 1, tag_ids: ['a', 'b'] }, { id: 2, tag_ids: [] }, { id: 3, tag_ids: [] }])
+    expect(withTags(null)).toEqual([])
   })
-  it('callers that do not know about tags leave them alone', () => expect(changes(old, same)).toEqual({}))
 })
 
 import { NO_TAG, bulkMessage, chunk, usedTagIds, visibleExpenses } from './expense'
 describe('Home list filter', () => {
   const list = [
-    { id: 1, bill_id: null, monthly_fee: false, tag_id: 'a' }, { id: 2, bill_id: null, monthly_fee: false, tag_id: null },
-    { id: 3, bill_id: 'b', monthly_fee: true, tag_id: null }, // a monthly fee: everyday spending
-    { id: 4, bill_id: 'b', monthly_fee: false, tag_id: 'a' }, // a yearly bill payment
-    { id: 5, bill_id: 'b', monthly_fee: false, tag_id: null }, // a yearly bill payment without a tag
+    { id: 1, bill_id: null, monthly_fee: false, tag_ids: ['a'] }, { id: 2, bill_id: null, monthly_fee: false, tag_ids: [] },
+    { id: 3, bill_id: 'b', monthly_fee: true, tag_ids: [] }, // a monthly fee: everyday spending
+    { id: 4, bill_id: 'b', monthly_fee: false, tag_ids: ['a', 'z'] }, // a yearly bill payment
+    { id: 5, bill_id: 'b', monthly_fee: false, tag_ids: [] }, // a yearly bill payment without a tag
   ]
   it('no filter: everyday spending, as before', () => expect(visibleExpenses(list, '').map(x => x.id)).toEqual([1, 2, 3]))
   it('a tag: everything with it, bill payments included (matches the tag total)', () => expect(visibleExpenses(list, 'a').map(x => x.id)).toEqual([1, 4]))
   it('"no tag": untagged everyday spending, which is what is left to tag', () => expect(visibleExpenses(list, NO_TAG).map(x => x.id)).toEqual([2, 3]))
   it('a tag nobody uses shows nothing', () => expect(visibleExpenses(list, 'zzz')).toEqual([]))
-  it('lists the tags that are in use', () => expect([...usedTagIds(list)]).toEqual(['a']))
+  it('lists the tags that are in use', () => expect([...usedTagIds(list)].sort()).toEqual(['a', 'z']))
 })
 describe('chunk', () => {
   it('splits into pieces of at most the size, keeping order', () => {
@@ -250,7 +250,7 @@ describe('chunk', () => {
 describe('bulkMessage', () => {
   it('says what happened', () => {
     expect(bulkMessage(3, 3, 'Holiday')).toBe('Tagged 3 expenses with #Holiday.'); expect(bulkMessage(1, 1, 'Holiday')).toBe('Tagged 1 expense with #Holiday.')
-    expect(bulkMessage(2, 2, null)).toBe('Removed the tag from 2 expenses.')
+    expect(bulkMessage(2, 2, null)).toBe('Removed the tags from 2 expenses.')
   })
   it('reports expenses that could not be changed', () => {
     const m = bulkMessage(5, 3, 'Kitchen'); expect(m).toContain('Tagged 3 expenses'); expect(m).toContain('2 expenses could not be changed')
@@ -475,7 +475,7 @@ describe('breakdown (where the money goes)', () => {
   const cat = (id: string, name: string): Category => ({ id, name, emoji: '•', budget_cents: 0, archived: false })
   const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
   const cats = names.map(n => cat(n.toLowerCase(), n))
-  const x = (category_id: string | null, amount_cents: number, o: Record<string, unknown> = {}) => ({ category_id, amount_cents, tag_id: null, bill_id: null, monthly_fee: false, spent_on: '2026-11-05', ...o })
+  const x = (category_id: string | null, amount_cents: number, o: Record<string, unknown> = {}) => ({ category_id, amount_cents, tag_ids: [] as string[], bill_id: null, monthly_fee: false, spent_on: '2026-11-05', ...o })
 
   it('shares as tenths always add up to exactly 100.0', () => {
     expect(tenths([1, 1, 1]).reduce((a, b) => a + b, 0)).toBe(1000)
@@ -522,11 +522,11 @@ describe('breakdown (where the money goes)', () => {
 
   it('lists the tags inside a category, with "No tag" last and shares of that category', () => {
     const tags = [{ id: 't1', name: 'Weekly shop' }, { id: 't2', name: 'Party' }]
-    const b = breakdown([x('a', 54000, { tag_id: 't1' }), x('a', 10000, { tag_id: 't2' }), x('a', 8000)], null, cats, tags)
+    const b = breakdown([x('a', 54000, { tag_ids: ['t1'] }), x('a', 10000, { tag_ids: ['t2'] }), x('a', 8000)], null, cats, tags)
     expect(b.slices[0].details.map(d => d.name)).toEqual(['Weekly shop', 'Party', 'No tag'])
     expect(b.slices[0].details.map(d => d.pct)).toEqual([75, 13.9, 11.1])
     expect(b.slices[0].details.every(d => d.width === Math.round(d.pct))).toBe(true)
-    const noTagFirstBig = breakdown([x('a', 90000), x('a', 1000, { tag_id: 't2' })], null, cats, tags)
+    const noTagFirstBig = breakdown([x('a', 90000), x('a', 1000, { tag_ids: ['t2'] })], null, cats, tags)
     expect(noTagFirstBig.slices[0].details.map(d => d.name)).toEqual(['Party', 'No tag']) // even when it is the biggest
   })
 
@@ -605,7 +605,7 @@ describe('annual fee flag', () => {
     expect(isBillPayment({ bill_id: 'b', monthly_fee: false })).toBe(true)
   })
   it('stays visible in the lists so it can be found and corrected', () => {
-    const all = [{ id: 1, bill_id: null, monthly_fee: false, tag_id: null, annual_fee: true }, { id: 2, bill_id: null, monthly_fee: false, tag_id: null }, { id: 3, bill_id: 'b', monthly_fee: false, tag_id: null }]
+    const all = [{ id: 1, bill_id: null, monthly_fee: false, annual_fee: true }, { id: 2, bill_id: null, monthly_fee: false }, { id: 3, bill_id: 'b', monthly_fee: false }]
     expect(visibleExpenses(all, '').map(x => x.id)).toEqual([1, 2]) // the yearly bill payment is on the Plan page
     expect(visibleExpenses(all, NO_TAG).map(x => x.id)).toEqual([1, 2])
   })
@@ -614,7 +614,7 @@ describe('annual fee flag', () => {
     expect(categoryExpenses(rows, 'c')).toHaveLength(1); expect(separateBillsIn(rows, 'c')).toHaveLength(1)
   })
   it('is left out of the breakdown shares and reported apart', () => {
-    const x = (cat: string, cents: number, o: Record<string, unknown> = {}) => ({ category_id: cat, amount_cents: cents, tag_id: null, bill_id: null, monthly_fee: false, annual_fee: false, spent_on: '2026-09-03', ...o })
+    const x = (cat: string, cents: number, o: Record<string, unknown> = {}) => ({ category_id: cat, amount_cents: cents, tag_ids: [] as string[], bill_id: null, monthly_fee: false, annual_fee: false, spent_on: '2026-09-03', ...o })
     const b = breakdown([x('a', 1000), x('a', 9900, { annual_fee: true })], null, [{ id: 'a', name: 'A', emoji: '•', budget_cents: 0 }], [])
     expect(b.total).toBe(1000); expect(b.separateBills).toBe(9900)
   })
@@ -750,7 +750,7 @@ describe('family rules', () => {
 describe('tidy up Other', () => {
   const C = (id: string, name: string): Category => ({ id, name, emoji: '•', budget_cents: 0, archived: false })
   const cats = [C('g', 'Groceries'), C('e', 'Eating out'), C('f', 'Fun'), C('o', 'Other')]
-  const x = (id: string, note: string, o: Record<string, unknown> = {}) => ({ id, note, amount_cents: 1000, spent_on: '2026-11-0' + id.slice(-1), category_id: 'o', tag_id: null, annual_fee: false, ...o })
+  const x = (id: string, note: string, o: Record<string, unknown> = {}) => ({ id, note, amount_cents: 1000, spent_on: '2026-11-0' + id.slice(-1), category_id: 'o', tag_ids: [] as string[], annual_fee: false, ...o })
   const rule = (pattern: string, category_id: string, o: Partial<Rule> = {}): Rule => ({ id: pattern, pattern, min_cents: null, max_cents: null, category_id, tag_id: null, annual_fee: false, status: 'on', ...o })
   const none = new Map()
 
@@ -763,24 +763,27 @@ describe('tidy up Other', () => {
     const h = buildHistory([...Array(4)].map(() => ({ note: 'Zeta Corner', category_id: 'o' })))
     expect(tidyCandidates([x('a1', 'Zeta Corner')], cats, 'o', h, [rule('zeta corner', 'o')]).rows).toEqual([])
   })
-  it('uses the family rules, with their tag and annual-fee flag, but never overwrites a tag already there', () => {
+  it('uses the family rules, with their tag and annual-fee flag, adding the tag only when the expense does not have it yet', () => {
     const rules = [rule('sportclub', 'f', { tag_id: 'tag1', annual_fee: true })]
-    const r = tidyCandidates([x('a1', 'Sportclub'), x('a2', 'Sportclub', { tag_id: 'mine' }), x('a3', 'Sportclub', { annual_fee: true })], cats, 'o', none, rules).rows
+    const r = tidyCandidates([x('a1', 'Sportclub'), x('a2', 'Sportclub', { tag_ids: ['mine', 'tag1'] }), x('a3', 'Sportclub', { annual_fee: true })], cats, 'o', none, rules).rows
     const by = Object.fromEntries(r.map(c => [c.id, c]))
     expect(by.a1).toMatchObject({ categoryId: 'f', tagId: 'tag1', annualFee: true, source: 'rule' })
     expect(by.a2.tagId).toBeNull(); expect(by.a3.annualFee).toBe(false)
   })
   it('groups the changes so a request moves many rows, and undo restores each one exactly', () => {
     const rules = [rule('sportclub', 'f', { tag_id: 'tag1', annual_fee: true })]
-    const rows = tidyCandidates([x('a1', 'Lidl'), x('a2', 'Lidl Berlin'), x('a3', 'Sportclub'), x('a4', 'Sportclub', { tag_id: 'mine' })], cats, 'o', none, rules).rows
+    const rows = tidyCandidates([x('a1', 'Lidl'), x('a2', 'Lidl Berlin'), x('a3', 'Sportclub'), x('a4', 'Sportclub', { tag_ids: ['mine', 'tag1'] })], cats, 'o', none, rules).rows
     const go = applyBatches(rows)
     expect(go).toHaveLength(3)
     expect(go.find(b => b.patch.category_id === 'g')).toEqual({ patch: { category_id: 'g' }, ids: ['a2', 'a1'] })
-    expect(go.find(b => b.ids.includes('a3'))!.patch).toEqual({ category_id: 'f', tag_id: 'tag1', annual_fee: true })
-    expect(go.find(b => b.ids.includes('a4'))!.patch).toEqual({ category_id: 'f', annual_fee: true }) // keeps their own tag
+    expect(go.find(b => b.ids.includes('a3'))!.patch).toEqual({ category_id: 'f', annual_fee: true })
+    expect(go.find(b => b.ids.includes('a3'))!.addTag).toBe('tag1')
+    expect(go.find(b => b.ids.includes('a4'))!.patch).toEqual({ category_id: 'f', annual_fee: true }) // already has the tag
+    expect(go.find(b => b.ids.includes('a4'))!.addTag).toBeUndefined()
     const back = undoBatches(rows)
-    expect(back.find(b => b.ids.includes('a3'))!.patch).toEqual({ category_id: 'o', tag_id: null, annual_fee: false })
-    expect(back.find(b => b.ids.includes('a4'))!.patch).toEqual({ category_id: 'o', annual_fee: false }) // never touches the tag it did not set
+    expect(back.find(b => b.ids.includes('a3'))!.patch).toEqual({ category_id: 'o', annual_fee: false })
+    expect(back.find(b => b.ids.includes('a3'))!.removeTag).toBe('tag1') // takes off the tag it added
+    expect(back.find(b => b.ids.includes('a4'))!.removeTag).toBeUndefined() // never touches a tag it did not set
     expect(back.flatMap(b => b.ids).sort()).toEqual(['a1', 'a2', 'a3', 'a4'])
   })
   it('keeps the confidence, so only the sure ones can be ticked to start with', () => {
@@ -926,16 +929,16 @@ describe('flow diagram with a tags level', () => {
 })
 
 describe('tag filter (several tags at once)', () => {
-  const rows = [{ id: 1, tag_id: 'a' }, { id: 2, tag_id: 'b' }, { id: 3, tag_id: null }, { id: 4, tag_id: 'c' }, { id: 5 }]
-  it('shows everything when nothing is chosen', () => { expect(filterByTags(rows, []).map(r => r.id)).toEqual([1, 2, 3, 4, 5]) })
-  it('one tag shows only its expenses', () => { expect(filterByTags(rows, ['a']).map(r => r.id)).toEqual([1]) })
-  it('several tags are a union: any of them, never counted twice', () => {
-    expect(filterByTags(rows, ['a', 'b']).map(r => r.id)).toEqual([1, 2])
-    expect(filterByTags(rows, ['b', 'a', 'c']).map(r => r.id)).toEqual([1, 2, 4])
+  const rows = [{ id: 1, tag_ids: ['a'] }, { id: 2, tag_ids: ['b'] }, { id: 3, tag_ids: [] }, { id: 4, tag_ids: ['c'] }, { id: 5 }, { id: 6, tag_ids: ['a', 'b'] }]
+  it('shows everything when nothing is chosen', () => { expect(filterByTags(rows, []).map(r => r.id)).toEqual([1, 2, 3, 4, 5, 6]) })
+  it('one tag shows only its expenses', () => { expect(filterByTags(rows, ['a']).map(r => r.id)).toEqual([1, 6]) })
+  it('several tags are a union: any of them, an expense carrying two chosen tags still shows once', () => {
+    expect(filterByTags(rows, ['a', 'b']).map(r => r.id)).toEqual([1, 2, 6])
+    expect(filterByTags(rows, ['b', 'a', 'c']).map(r => r.id)).toEqual([1, 2, 4, 6])
   })
   it('"No tag" is one more choice in the union, and covers a missing tag too', () => {
     expect(filterByTags(rows, [NO_TAG_CHOICE]).map(r => r.id)).toEqual([3, 5])
-    expect(filterByTags(rows, ['a', NO_TAG_CHOICE]).map(r => r.id)).toEqual([1, 3, 5])
+    expect(filterByTags(rows, ['a', NO_TAG_CHOICE]).map(r => r.id)).toEqual([1, 3, 5, 6])
   })
   it('a tag nobody uses matches nothing', () => { expect(filterByTags(rows, ['zzz'])).toEqual([]) })
   it('splits a choice for the database', () => {
@@ -947,10 +950,5 @@ describe('tag filter (several tags at once)', () => {
     expect(describeChoice([], tags)).toBe(''); expect(describeChoice(['a'], tags)).toBe('#Vietnam trip')
     expect(describeChoice(['a', 'b'], tags)).toBe('#Vietnam trip and #Party'); expect(describeChoice(['a', 'b', 'c'], tags)).toBe('#Vietnam trip, #Party and #Kitchen')
     expect(describeChoice(['b', NO_TAG_CHOICE], tags)).toBe('#Party and no tag'); expect(describeChoice(['gone'], tags)).toBe('') // a deleted tag is left out
-  })
-  it('adds up the all-time totals of the chosen tags (tag_totals rows, null = no tag)', () => {
-    const totals = [{ tag_id: 'a', total_cents: 249000, n: 38 }, { tag_id: 'b', total_cents: 5000, n: 2 }, { tag_id: null, total_cents: 99999, n: 400 }]
-    expect(allTimeFor(totals, ['a'])).toEqual({ total: 249000, n: 38 }); expect(allTimeFor(totals, ['a', 'b'])).toEqual({ total: 254000, n: 40 })
-    expect(allTimeFor(totals, [NO_TAG_CHOICE])).toEqual({ total: 99999, n: 400 }); expect(allTimeFor(totals, ['zzz'])).toEqual({ total: 0, n: 0 })
   })
 })

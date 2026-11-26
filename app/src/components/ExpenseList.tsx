@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import { supabase } from '../lib/supabase'
 import { euro } from '../lib/money'
-import { NO_TAG, bulkMessage, chunk, usedTagIds, visibleExpenses } from '../lib/expense'
+import { NO_TAG, bulkMessage, usedTagIds, visibleExpenses } from '../lib/expense'
+import { addTagToMany, removeTagFromMany } from '../lib/expenseTags'
 import { useTags } from '../lib/tags'
 import type { Category, Expense } from '../lib/types'
 import Sheet from './Sheet'
@@ -20,7 +20,6 @@ type Props = {
 }
 
 const PAGE = 30
-const REQUEST_SIZE = 100 // ids per request: each one is written into the URL
 
 export default function ExpenseList({ expenses, cats, title, nameOf, canEdit, onEdit, onChanged }: Props) {
   const { tags, create: createTag, reload: reloadTags } = useTags()
@@ -52,13 +51,9 @@ export default function ExpenseList({ expenses, cats, title, nameOf, canEdit, on
 
   async function apply(tagId: string | null) {
     const ids = [...picked]
-    let updated = 0, problem = ''
-    for (const part of chunk(ids, REQUEST_SIZE)) {
-      // .select() tells us how many rows the database really changed: it silently skips what you may not edit
-      const { data, error } = await supabase.from('expenses').update({ tag_id: tagId }).in('id', part).select('id')
-      if (error) { problem = error.message; break }
-      updated += data?.length ?? 0
-    }
+    // tagId null = take all their tags off; otherwise the tag is added (a tag they already have is left alone)
+    const r = tagId ? await addTagToMany(ids, tagId) : await removeTagFromMany(ids)
+    const updated = r.n, problem = r.error ?? ''
     setStatus(problem
       ? `Stopped after ${updated} of ${ids.length}: ${problem}`
       : bulkMessage(ids.length, updated, tagId ? tags.find(t => t.id === tagId)?.name ?? '' : null))
@@ -121,7 +116,7 @@ export default function ExpenseList({ expenses, cats, title, nameOf, canEdit, on
                 {x.edited_at && <span className="tag">edited{x.edited_by ? ` by ${nameOf(x.edited_by)}` : ''}</span>}
                 {x.bill_id && <span className="tag">{x.monthly_fee ? 'monthly bill' : 'bill'}</span>}
                 {x.annual_fee && <span className="tag" title="Not counted as monthly spending">annual fee</span>}
-                {tagName(x.tag_id) && <span className="tag tagname">#{tagName(x.tag_id)}</span>}</div>
+                {(x.tag_ids ?? []).map(id => tagName(id) && <span key={id} className="tag tagname">#{tagName(id)}</span>)}</div>
             </div>
             <div className="right"><strong>{euro(x.amount_cents)}</strong>{open && !selecting && <span className="muted small"> ✎</span>}</div>
           </div>
@@ -150,9 +145,9 @@ function BulkTagSheet({ count, tags, onCreate, onClose, onApply }: {
   const run = async (id: string | null) => { setBusy(true); try { await onApply(id) } finally { setBusy(false) } }
   return (
     <Sheet title={`Tag ${count} ${count === 1 ? 'expense' : 'expenses'}`} onClose={onClose}>
-      <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={onCreate} label="Choose a tag, or make a new one" />
-      <button className="primary" disabled={!tag || busy} onClick={() => void run(tag)}>{busy ? 'Saving…' : 'Apply tag'}</button>
-      <button disabled={busy} onClick={() => { if (confirm(`Remove the tag from ${count} ${count === 1 ? 'expense' : 'expenses'}?`)) void run(null) }}>Remove their tag instead</button>
+      <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={onCreate} label="Add a tag, or make a new one" />
+      <button className="primary" disabled={!tag || busy} onClick={() => void run(tag)}>{busy ? 'Saving…' : 'Add tag'}</button>
+      <button disabled={busy} onClick={() => { if (confirm(`Remove all tags from ${count} ${count === 1 ? 'expense' : 'expenses'}?`)) void run(null) }}>Remove all their tags instead</button>
     </Sheet>
   )
 }

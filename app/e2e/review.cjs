@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat, tagsOf } = require('./etshim.cjs')
 const S = process.argv[2]
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
 const now = new Date(), ym = o => new Date(now.getFullYear(), now.getMonth() + o, 1).toLocaleDateString('sv').slice(0, 7), Y = now.getFullYear()
@@ -29,6 +30,8 @@ async function open(path, o = {}) {
     if (p.startsWith('/rest/v1/rpc/')) {
       const n = p.split('/').pop(), body = rq.postData() ? JSON.parse(rq.postData()) : {}; log.push({ k: 'rpc', n, body })
       if (n === 'year_summary') return json(st.summary)
+      if (n === 'year_summary_by_tag') return json(st.tagSummary || [])
+      if (n === 'tags_total') return json([{ total_cents: 249000, n: 38 }])
       return json(n === 'settle_allowance' ? 0 : [])
     }
     if (!p.startsWith('/rest/v1/')) return json({})
@@ -37,8 +40,12 @@ async function open(path, o = {}) {
     if (tb === 'expenses') {
       log.push({ k: 'GET', tb, q: u.search })
       let rows = st.expenses; for (const r of u.searchParams.getAll('spent_on')) { const [op, ...v] = r.split('.'); const val = v.join('.'); rows = rows.filter(x => op === 'gte' ? x.spent_on >= val : op === 'lt' ? x.spent_on < val : true) }
-      return json(rows)
+      const want = (u.searchParams.get('expense_tags.tag_id') || '').replace(/^in\.\(|\)$/g, '').split(',').filter(Boolean)
+      if (want.length) rows = rows.filter(x => tagsOf(x).some(t => want.includes(t)))
+      if (u.searchParams.get('expense_tags') === 'is.null') rows = rows.filter(x => !tagsOf(x).length)
+      return json(withEt(rows))
     }
+    if (tb === 'expense_tags') { const ids = (decodeURIComponent(u.search).match(/expense_id=in\.\(([^)]*)\)/) || [])[1]; const all = flat(st.expenses); return json(ids ? all.filter(r => ids.split(',').includes(r.expense_id)) : all) }
     const map = { categories: st.cats, members: [P, KID], bills: [], bill_payments: [], tags, goals: st.goals || [], goal_contributions: st.contribs || [] }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)
     return json(single ? (rows[0] ?? null) : rows)
@@ -65,7 +72,7 @@ const heads = pg => pg.locator('main h2').allInnerTexts()
   /* ===== the tabs, and this month ===== */
   let s = await open('/review', { expenses: data() }), pg = s.page
   await pg.waitForSelector('.bd-row')
-  ok(JSON.stringify(await pg.getByRole('tab').allInnerTexts()) === JSON.stringify(['Month', 'Year', 'Tags']), 'Review has three tabs: Month, Year, Tags')
+  ok(JSON.stringify(await pg.getByRole('tab').allInnerTexts()) === JSON.stringify(['Month', 'Year']), 'Review has two tabs: Month and Year (tags are a filter now)')
   ok(await pg.getByRole('tab', { name: 'Month' }).getAttribute('aria-selected') === 'true', 'it opens on Month')
   ok(!(await pg.getByRole('tab').allInnerTexts()).includes('Breakdown') && !(await pg.getByRole('tab').allInnerTexts()).includes('This month'), 'no Breakdown tab and no "This month" tab any more')
   const monthLabel = new Date().toLocaleDateString('en-IE', { month: 'long', year: 'numeric' })
@@ -266,6 +273,32 @@ const heads = pg => pg.locator('main h2').allInnerTexts()
   ok(stacked.length === 2 && stacked[1] > stacked[0], 'and the cards are stacked')
   await pg.getByRole('button', { name: 'Flow' }).click()
   ok(await pg.locator('svg.flow').getAttribute('viewBox') !== '0 0 760 470' && await pg.locator('svg.flow path').count() === 5, 'with Flow between 600 and 900 px the compact two-level diagram is used')
+  await s.b.close()
+
+
+  /* ===== the tag filter: several tags per expense, several tags at once ===== */
+  const withBoth = () => [...data(), x('both', 'l', 2000, day(0, 1), { tag_ids: ['t1', 't2'] })]
+  s = await open('/review', { expenses: withBoth().map(e => (e.tag_id ? { ...e, tag_ids: [e.tag_id], tag_id: null } : e)), tagSummary: [{ month: 11, category_id: 'g', is_bill: false, total_cents: 12000 }] }); pg = s.page
+  await pg.waitForSelector('.bd-row')
+  const chipRow = pg.locator('[aria-label="Filter by tag"]')
+  ok(JSON.stringify(await chipRow.locator('button').allInnerTexts()) === JSON.stringify(['All spending', '#Weekly shop', '#Party', 'No tag']), 'the tag filter offers All spending, each tag and No tag: ' + JSON.stringify(await chipRow.locator('button').allInnerTexts()))
+  ok(await chipRow.getByRole('button', { name: 'All spending' }).getAttribute('aria-pressed') === 'true', 'All spending is on to start with')
+  await chipRow.getByRole('button', { name: '#Party' }).click(); await pg.waitForTimeout(500)
+  ok(await text(pg, '.card .big') === '€120', 'one tag: an expense with two tags counts in full under each (100 + 20): ' + await text(pg, '.card .big'))
+  ok((await text(pg, '.bd-alltime')).includes('All time') && (await text(pg, '.bd-alltime')).includes('€2,490'), 'an All time line shows the tag over every month: ' + await text(pg, '.bd-alltime'))
+  ok(s.log.some(l => l.k === 'rpc' && l.n === 'tags_total' && JSON.stringify(l.body.tag_ids) === '["t2"]'), 'the all-time total is asked of the database as a union, so nothing is counted twice')
+  ok(await pg.locator('.card:has-text("Expenses")').filter({ hasText: 'both' }).count() >= 1 || (await pg.locator('main').innerText()).includes('both'), 'the expenses behind the tag are listed (the shared one too)')
+  await chipRow.getByRole('button', { name: '#Weekly shop' }).click(); await pg.waitForTimeout(500)
+  ok(await text(pg, '.card .big') === '€660', 'two tags are a union: 540 + 100 + 20, the shared one only once: ' + await text(pg, '.card .big'))
+  ok(JSON.stringify(await chipRow.locator('button[aria-pressed=true]').allInnerTexts()) === JSON.stringify(['✓ #Weekly shop', '✓ #Party']), 'chosen tags show a tick')
+  await chipRow.getByRole('button', { name: 'No tag' }).click(); await pg.waitForTimeout(400)
+  ok(await text(pg, '.card .big') === '€2,280', 'No tag joins the union: both tags plus everything untagged is all spending: ' + await text(pg, '.card .big'))
+  await chipRow.getByRole('button', { name: 'All spending' }).click(); await pg.waitForTimeout(400)
+  ok(await text(pg, '.card .big') === '€2,280' && await pg.locator('.bd-alltime').count() === 0, 'All spending clears the filter (the shared expense adds its own €20): ' + await text(pg, '.card .big'))
+  await chipRow.getByRole('button', { name: '#Party' }).click(); await pg.waitForTimeout(300)
+  await pg.getByRole('tab', { name: 'Year' }).click(); await pg.waitForTimeout(700)
+  ok(await chipRow.getByRole('button', { name: '#Party' }).getAttribute('aria-pressed') === 'true', 'the choice stays when you go to the Year tab')
+  ok(s.log.some(l => l.k === 'rpc' && l.n === 'year_summary_by_tag' && JSON.stringify(l.body.tag_ids) === '["t2"]' && l.body.include_untagged === false), 'the Year tab asks the database for the chosen tags only: ' + JSON.stringify(s.log.filter(l => l.n === 'year_summary_by_tag').map(l => l.body)))
   await s.b.close()
 
   console.log(results.join('\n')); console.log(`\n${results.filter(r => r.startsWith('PASS')).length} passed, ${results.filter(r => r.startsWith('FAIL')).length} failed`)

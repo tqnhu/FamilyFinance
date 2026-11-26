@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { WITH_TAGS, withTags } from '../lib/expenseTags'
 import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
 import { isoDate } from '../lib/bills'
@@ -31,11 +32,11 @@ export default function Dashboard() {
   const load = useCallback(async () => {
     const [c, e, m] = await Promise.all([
       supabase.from('categories').select('*').order('name'),
-      supabase.from('expenses').select('*').gte('spent_on', monthStart(viewed)).lt('spent_on', nextMonthStart(viewed))
+      supabase.from('expenses').select(WITH_TAGS).gte('spent_on', monthStart(viewed)).lt('spent_on', nextMonthStart(viewed))
         .order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('members').select('*'),
     ])
-    setCats(c.data ?? []); setExpenses(e.data ?? []); setPeople(m.data ?? []); setVersion(v => v + 1)
+    setCats(c.data ?? []); setExpenses(withTags(e.data) as unknown as Expense[]); setPeople(m.data ?? []); setVersion(v => v + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offset])
   useEffect(() => { void load() }, [load])

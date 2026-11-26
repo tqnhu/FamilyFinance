@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { fetchByTags } from '../lib/expenseTags'
 import { euro } from '../lib/money'
 import { isBillPayment } from '../lib/expense'
 import { splitChoice } from '../lib/tagfilter'
@@ -22,13 +23,9 @@ export default function TaggedExpenses({ from, to, choice, title, cats, version,
 
   const load = useCallback(async () => {
     const { ids, untagged } = splitChoice(choice)
-    let q = supabase.from('expenses').select('*').gte('spent_on', from).lt('spent_on', to)
-    if (ids.length && untagged) q = q.or(`tag_id.in.(${ids.join(',')}),tag_id.is.null`)
-    else if (ids.length) q = q.in('tag_id', ids)
-    else if (untagged) q = q.is('tag_id', null)
-    const [e, m] = await Promise.all([q.order('spent_on', { ascending: false }).order('created_at', { ascending: false }).limit(LIMIT), supabase.from('members').select('*')])
-    if (e.error) return setError(e.error.message)
-    setError(''); setItems(((e.data ?? []) as Expense[]).filter(x => !isBillPayment(x))); setPeople((m.data ?? []) as Member[])
+    const [e, m] = await Promise.all([fetchByTags(from, to, ids, untagged, LIMIT), supabase.from('members').select('*')])
+    if (e.error) return setError(e.error)
+    setError(''); setItems((e.rows as unknown as Expense[]).filter(x => !isBillPayment(x))); setPeople((m.data ?? []) as Member[])
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from, to, key])
   useEffect(() => { setAll(false); void load() }, [load, version])

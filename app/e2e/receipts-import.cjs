@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const fs = require('fs')
 const S = process.argv[2], FX = `${S}/fx`
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
@@ -52,7 +53,7 @@ async function open(path, o = {}) {
       if (q.includes('import_batch=not.is.null')) return json(st.pastRows)
       if (q.includes('category_id=not.is.null')) return json(st.history)
       if (q.includes('spent_on=gte') && q.includes('spent_on=lte')) return json(st.existing)
-      return json(st.expenses)
+      return json(withEt(st.expenses))
     }
     const map = { categories: cats, members: [P], bills: [], bill_payments: [] }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)
@@ -181,11 +182,11 @@ const py = (f, xy = '5,5') => require('child_process').execSync('python3 -c "fro
   ok((await catOf('Albert Heijn')).includes('Groceries') && (await catOf('NS Groep')).includes('Transport') && (await catOf('Thuisbezorgd')).includes('Eating out'), 'starter keywords suggest Groceries, Transport, Eating out')
   ok((await catOf('Bakkerij')).includes('Eating out') && await pg.locator('.imp-row:has-text("Bakkerij") >> text=Learned').count() === 1 && await pg.locator('.imp-row:has-text("Bakkerij") >> text=earlier expenses mentioning').count() === 1, 'a merchant seen before is categorised from the family\'s own history, labelled Learned with the reason')
   ok((await catOf('Zoë Müller')).includes('Other'), 'unknown merchants default to Other')
-  ok(await pg.locator('.imp-row:has-text("Albert Heijn") >> text=possible duplicate').count() === 1 && await pg.locator('.imp-row:has-text("Albert Heijn") input[type=checkbox]').isChecked() === false, 'an expense already entered (same day and amount) is flagged and unchecked')
+  ok(await pg.locator('.imp-row:has-text("Albert Heijn") >> text=possible duplicate').count() === 1 && await pg.locator('.imp-row:has-text("Albert Heijn") input[aria-label^="Import"]').isChecked() === false, 'an expense already entered (same day and amount) is flagged and unchecked')
   ok((await pg.locator('button.primary:has-text("Import 4")').count()) === 1, 'the button says exactly what will happen (4 expenses)')
   // review: change a category, uncheck a row, clear one category
   await pg.locator('.imp-row:has-text("Thuisbezorgd") select').selectOption({ label: '🛒 Groceries' })
-  await pg.locator('.imp-row:has-text("NS Groep") input[type=checkbox]').uncheck()
+  await pg.locator('.imp-row:has-text("NS Groep") input[aria-label^="Import"]').uncheck()
   await pg.locator('.imp-row:has-text("Zoë Müller") select').selectOption({ value: '' })
   ok(await pg.locator('button.primary:has-text("Import 3")').isDisabled() && await pg.locator('text=needs a category').count() === 1, 'import is blocked while a selected row has no category')
   await pg.locator('.imp-row:has-text("Zoë Müller") select').selectOption({ label: '🍕 Eating out' })
@@ -197,7 +198,7 @@ const py = (f, xy = '5,5') => require('child_process').execSync('python3 -c "fro
   const byNote = n => rowsIn.find(r => r.note.includes(n))
   ok(byNote('Thuisbezorgd').amount_cents === 102400 && byNote('Thuisbezorgd').category_id === 'g' && byNote('Bakkerij').category_id === 'e' && byNote('Bakkerij').amount_cents === 420, 'amounts (1.024,00 -> 102400) and the chosen categories are what was imported')
   ok(!rowsIn.some(r => r.note.includes('NS Groep') || r.note.includes('Albert')), 'unchecked and duplicate rows are not imported')
-  ok(!rowsIn.some(r => 'id' in r || 'receipt_path' in r || 'bill_id' in r), 'only allowed columns are sent')
+  ok(!rowsIn.some(r => 'receipt_path' in r || 'bill_id' in r), 'only allowed columns are sent (the id is chosen by the app so the tags can point at it)')
   ok(await pg.locator('text=Imported 3 expenses').count() === 1, 'a confirmation is shown')
   await pg.click('button:text-is("Undo this import")'); await pg.waitForTimeout(700)
   const ud = s.log.find(l => l.k === 'DELETE'); ok(ud && ud.q.includes(`import_batch=eq.${rowsIn[0].import_batch}`) && !ud.q.includes('b-old'), 'Undo deletes exactly that import batch')

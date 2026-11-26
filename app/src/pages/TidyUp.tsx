@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { addTagToMany, removeTagFromMany, withTags } from '../lib/expenseTags'
 import { euro } from '../lib/money'
 import { chunk } from '../lib/expense'
 import { applyBatches, tidyCandidates, undoBatches, type Batch, type Candidate } from '../lib/tidy'
@@ -10,7 +11,7 @@ import type { Category, Expense } from '../lib/types'
 const REQUEST_SIZE = 100 // ids per request: each one is written into the URL
 const LIMIT = 500
 
-type Source = Pick<Expense, 'id' | 'note' | 'amount_cents' | 'spent_on' | 'category_id' | 'tag_id' | 'annual_fee'>
+type Source = Pick<Expense, 'id' | 'note' | 'amount_cents' | 'spent_on' | 'category_id' | 'tag_ids' | 'annual_fee'>
 const chipOf = (s: Candidate['source']) => (s === 'history' ? ['learned', 'Learned'] : ['rule', 'Rule'])
 
 /** Settings → Configuration → Tidy up Other: move past expenses out of Other with a preview, and undo it straight afterwards. */
@@ -29,10 +30,10 @@ export default function TidyUp({ onBack }: { onBack: () => void }) {
   const load = useCallback(async (c: Category[]) => {
     const o = c.find(x => x.name.trim().toLowerCase() === 'other')
     if (!o) return setExpenses([])
-    const { data, error: e } = await supabase.from('expenses').select('id, note, amount_cents, spent_on, category_id, tag_id, annual_fee')
+    const { data, error: e } = await supabase.from('expenses').select('id, note, amount_cents, spent_on, category_id, annual_fee, expense_tags(tag_id)')
       .eq('category_id', o.id).is('bill_id', null).order('spent_on', { ascending: false }).limit(LIMIT)
     if (e) return setError(e.message)
-    setExpenses((data ?? []) as Source[])
+    setExpenses(withTags(data) as unknown as Source[])
   }, [])
   useEffect(() => {
     void supabase.from('categories').select('*').order('name').then(r => {
@@ -53,6 +54,11 @@ export default function TidyUp({ onBack }: { onBack: () => void }) {
       const { data, error: e } = await supabase.from('expenses').update(b.patch).in('id', part).select('id')
       if (e) return { changed, problem: `Changed ${changed.size} of ${expected} before an error: ${e.message}` }
       for (const r of data ?? []) changed.add(r.id as string)
+      const ids = (data ?? []).map(r => r.id as string)
+      if (ids.length && (b.addTag || b.removeTag)) {
+        const t = b.addTag ? await addTagToMany(ids, b.addTag) : await removeTagFromMany(ids, b.removeTag)
+        if (t.error) return { changed, problem: `Moved ${changed.size} of ${expected}, but a tag could not be saved: ${t.error}` }
+      }
     }
     return { changed, problem: '' }
   }

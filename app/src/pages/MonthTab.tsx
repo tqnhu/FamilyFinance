@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { WITH_TAGS, withTags } from '../lib/expenseTags'
 import { euroTidy } from '../lib/money'
 import { monthKey, monthOffset, parseMonthKey, shiftMonth } from '../lib/category'
 import { breakdown, monthWindows, splitForComparison, type Breakdown as B } from '../lib/breakdown'
@@ -9,7 +10,7 @@ import { useChart } from '../lib/chartChoice'
 import { useWide } from '../lib/useWide'
 import type { Category, Expense } from '../lib/types'
 import type { Tag } from '../lib/tags'
-import { allTimeFor, describeChoice, filterByTags } from '../lib/tagfilter'
+import { describeChoice, filterByTags, splitChoice } from '../lib/tagfilter'
 import TagFilter from '../components/TagFilter'
 import TaggedExpenses from '../components/TaggedExpenses'
 import FlowChart from '../components/FlowChart'
@@ -17,7 +18,7 @@ import PieChart from '../components/PieChart'
 import ShareBar from '../components/ShareBar'
 import ChartToggle from '../components/ChartToggle'
 
-type Row = Pick<Expense, 'category_id' | 'tag_id' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on'>
+type Row = Pick<Expense, 'category_id' | 'tag_ids' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on'>
 
 const monthName = (d: Date, style: 'long' | 'short' = 'long') => d.toLocaleDateString('en-IE', { month: style })
 const deltaText = (d: number, vs: string) => `${d > 0 ? '▲' : d < 0 ? '▼' : '='} ${d === 0 ? 'same' : euroTidy(Math.abs(d))} vs ${vs}`
@@ -46,13 +47,13 @@ export default function MonthTab({ tags, choice, setChoice }: { tags: Tag[]; cho
     let alive = true
     setRows(null)
     Promise.all([
-      supabase.from('expenses').select('*').gte('spent_on', w.prevStart).lt('spent_on', w.end),
+      supabase.from('expenses').select(WITH_TAGS).gte('spent_on', w.prevStart).lt('spent_on', w.end),
       supabase.from('categories').select('*'),
       supabase.from('tags').select('id, name'),
     ]).then(([e, c, t]) => {
       if (!alive) return
       if (e.error || c.error) { setError((e.error ?? c.error)!.message); return }
-      setError(''); setRows((e.data ?? []) as Row[]); setCats((c.data ?? []) as Category[]); setTagList((t.data ?? []) as { id: string; name: string }[])
+      setError(''); setRows(withTags(e.data) as unknown as Row[]); setCats((c.data ?? []) as Category[]); setTagList((t.data ?? []) as { id: string; name: string }[])
     })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,7 +64,8 @@ export default function MonthTab({ tags, choice, setChoice }: { tags: Tag[]; cho
   useEffect(() => { // what carries the chosen tags over all time, so a trip that spans months has its grand total
     if (!filtered) return setAllTime(null)
     let alive = true
-    void supabase.rpc('tag_totals', { from_d: null, to_d: null }).then(r => { if (alive && !r.error) setAllTime(allTimeFor((r.data ?? []) as { tag_id: string | null; total_cents: number; n: number }[], choice)) })
+    const { ids, untagged } = splitChoice(choice)
+    void supabase.rpc('tags_total', { tag_ids: ids, include_untagged: untagged }).then(r => { const x = (r.data as { total_cents: number; n: number }[] | null)?.[0]; if (alive && !r.error && x) setAllTime({ total: Number(x.total_cents), n: Number(x.n) }) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choiceKey, version])

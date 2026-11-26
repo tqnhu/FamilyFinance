@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const S = process.argv[2]
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
 const now = new Date(), ym = o => new Date(now.getFullYear(), now.getMonth() + o, 1).toLocaleDateString('sv').slice(0, 7)
@@ -28,7 +29,7 @@ async function open(path, o = {}) {
     if (m === 'PATCH' || m === 'DELETE') { log.push({ k: m, tb, q: u.search, body: rq.postData() ? JSON.parse(rq.postData()) : null }); return json([{ id: 'ok' }]) }
     if (tb === 'expenses') {
       let rows = st.expenses; for (const r of u.searchParams.getAll('spent_on')) { const [op, ...v] = r.split('.'); const val = v.join('.'); rows = rows.filter(e => op === 'gte' ? e.spent_on >= val : op === 'lt' ? e.spent_on < val : true) }
-      return json([...rows].sort((a, c) => c.spent_on.localeCompare(a.spent_on)))
+      return json(withEt([...rows].sort((a, c) => c.spent_on.localeCompare(a.spent_on))))
     }
     const map = { categories: cats, members: [P], bills: [], bill_payments: [], tags: [] }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)

@@ -8,7 +8,8 @@ import {
 } from '../lib/csv'
 import type { Category } from '../lib/types'
 import { useTags } from '../lib/tags'
-import TagPicker from '../components/TagPicker'
+import TagsPicker from '../components/TagsPicker'
+import { MAX_TAGS } from '../lib/expenseTags'
 import { classify, patternFromNote } from '../lib/classify'
 import { useRules, useRuleActions } from '../lib/rules'
 
@@ -31,7 +32,7 @@ export default function ImportTab() {
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<{ count: number; batch: string; remembered: number } | null>(null)
   const [past, setPast] = useState<Past[]>([])
-  const [tag, setTag] = useState('')
+  const [tagIds, setTagIds] = useState<string[]>([])
   const [onlyUnsure, setOnlyUnsure] = useState(false)
   const [remember, setRemember] = useState(true) // turn the categories the person changes into rules
   const { rules, reload: reloadRules } = useRules()
@@ -112,12 +113,17 @@ export default function ImportTab() {
     const batch = crypto.randomUUID()
     let n = 0
     for (let i = 0; i < chosen.length; i += CHUNK) {
-      const part = chosen.slice(i, i + CHUNK).map(r => ({
-        family_id: member.family_id, member_id: member.user_id, category_id: r.cat, amount_cents: r.cents,
-        note: r.note, spent_on: r.date, import_batch: batch, tag_id: r.tagId || tag || null,
+      const tagRows: { expense_id: string; tag_id: string }[] = []
+      const part = chosen.slice(i, i + CHUNK).map(r => {
+        const id = crypto.randomUUID() // chosen here so the tags can point at the expense
+        for (const t of [...new Set([...(r.tagId ? [r.tagId] : []), ...tagIds])].slice(0, MAX_TAGS)) tagRows.push({ expense_id: id, tag_id: t })
+        return {
+        id, family_id: member.family_id, member_id: member.user_id, category_id: r.cat, amount_cents: r.cents,
+        note: r.note, spent_on: r.date, import_batch: batch,
         ...(r.annual ? { annual_fee: true } : {}), // only sent when ticked, so a normal import never depends on it
-      }))
-      const { error } = await supabase.from('expenses').insert(part)
+      } })
+      let { error } = await supabase.from('expenses').insert(part)
+      if (!error && tagRows.length) ({ error } = await supabase.from('expense_tags').insert(tagRows))
       if (error) {
         setBusy(false); void loadPast()
         return setMsg(`Imported ${n} of ${chosen.length} before an error: ${error.message}. Use "Undo" on the import below to remove those, then try again.`)
@@ -245,7 +251,7 @@ export default function ImportTab() {
               </div>
             ))}
           </div>
-          <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} label="Tag all these expenses (optional), e.g. a holiday statement" />
+          <TagsPicker tags={tags} value={tagIds} onChange={setTagIds} onCreate={createTag} label="Tag all these expenses (optional, up to 5), e.g. a holiday statement" />
           <label className="annual-opt">
             <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
             <span>Remember the categories I choose here<small className="muted"> Only for descriptions where I change the suggestion. You can review them in Settings, Configuration.</small></span>

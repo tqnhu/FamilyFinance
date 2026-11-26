@@ -47,19 +47,18 @@ insert into expenses (id, family_id, member_id, amount_cents, note, spent_on) va
   ('55555555-0000-0000-0000-000000000005', :'fam'::uuid, :C1,   700, 'excursion','2026-03-25'),
   ('55555555-0000-0000-0000-000000000006', :'fam'::uuid, :P,    900, 'untagged', '2026-03-26');
 select t.as_user(:P);
-update expenses set tag_id = :'vn'::uuid where id in ('55555555-0000-0000-0000-000000000001', '55555555-0000-0000-0000-000000000002', '55555555-0000-0000-0000-000000000003', '55555555-0000-0000-0000-000000000004');
-select t.ok((select count(*) from expenses where tag_id = :'vn'::uuid) = 4, 'a parent tags expenses');
-select t.fails(format($q$update expenses set tag_id = %L::uuid where id = '55555555-0000-0000-0000-000000000006'$q$, :'qtag'), 'an expense cannot get another family''s tag');
-select t.fails(format($q$insert into expenses (family_id, member_id, amount_cents, tag_id) values (%L::uuid, %L::uuid, 100, %L::uuid)$q$, :'fam', :P, :'qtag'), 'nor can a new one be created with it');
+insert into expense_tags (expense_id, tag_id) select id, :'vn'::uuid from expenses where id in ('55555555-0000-0000-0000-000000000001', '55555555-0000-0000-0000-000000000002', '55555555-0000-0000-0000-000000000003', '55555555-0000-0000-0000-000000000004');
+select t.ok((select count(*) from expense_tags where tag_id = :'vn'::uuid) = 4, 'a parent tags expenses');
+select t.fails(format($q$insert into expense_tags (expense_id, tag_id) values ('55555555-0000-0000-0000-000000000006', %L::uuid)$q$, :'qtag'), 'an expense cannot get another family''s tag');
+select t.fails(format($q$insert into expense_tags (expense_id, tag_id) values ('55555555-0000-0000-0000-000000000001', %L::uuid)$q$, :'vn'), 'the same tag cannot be put on an expense twice');
 select t.as_user(:C1);
-update expenses set tag_id = :'school'::uuid where id = '55555555-0000-0000-0000-000000000005';
-select t.ok((select tag_id from expenses where id = '55555555-0000-0000-0000-000000000005') = :'school'::uuid, 'a child tags their own expense');
-update expenses set tag_id = :'school'::uuid where id = '55555555-0000-0000-0000-000000000006';
-select t.su();
-select t.ok((select tag_id from expenses where id = '55555555-0000-0000-0000-000000000006') is null, 'but not a parent''s (no effect)');
-select t.as_user(:C1);
-insert into expenses (family_id, member_id, amount_cents, note, spent_on, tag_id) values (:'fam'::uuid, :C1, 300, 'new with tag', '2026-03-27', :'school'::uuid);
-select t.ok(true, 'a child can create an expense with a tag from the start');
+insert into expense_tags (expense_id, tag_id) values ('55555555-0000-0000-0000-000000000005', :'school'::uuid);
+select t.ok((select count(*) from expense_tags where expense_id = '55555555-0000-0000-0000-000000000005' and tag_id = :'school'::uuid) = 1, 'a child tags their own expense');
+select t.fails($q$insert into expense_tags (expense_id, tag_id) select '55555555-0000-0000-0000-000000000006', id from tags limit 1$q$, 'but not a parent''s expense');
+select t.ok((select count(*) from expense_tags where expense_id = '55555555-0000-0000-0000-000000000001') = 0, 'and a child does not even see the tags of a parent''s expense');
+insert into expenses (id, family_id, member_id, amount_cents, note, spent_on) values ('55555555-0000-0000-0000-000000000007', :'fam'::uuid, :C1, 300, 'new with tag', '2026-03-27');
+insert into expense_tags (expense_id, tag_id) values ('55555555-0000-0000-0000-000000000007', :'school'::uuid);
+select t.ok(true, 'a child can create an expense and tag it');
 select t.fails($q$update expenses set edited_at = now()$q$, 'tagging goes through the same protected columns (edit stamp still locked)');
 select t.as_user(:P);
 select t.ok((select edited_at from expenses where id = '55555555-0000-0000-0000-000000000001') is null, 'tagging is not an edit: no "edited by" mark appears on the expense');
@@ -72,8 +71,8 @@ select t.ok((select total_cents from tag_totals('2026-01-01', '2027-01-01') wher
 select t.ok((select total_cents from tag_totals() where tag_id = :'vn'::uuid) = 17500, 'all time: 17,500');
 select t.ok((select total_cents from tag_totals('2026-03-01', '2026-04-01') where tag_id = :'school'::uuid) = 1000, 'a child''s tagged expenses (700 + 300) count for the family');
 select t.ok((select total_cents from tag_totals('2026-03-01', '2026-04-01') where tag_id is null) is not null, 'expenses without a tag are reported too (tag_id null)');
-select t.ok((select sum(total_cents) from tag_totals('2026-03-01', '2026-04-01')) = (select sum(amount_cents) from expenses where spent_on >= '2026-03-01' and spent_on < '2026-04-01'), 'tags + "no tag" add up exactly to all spending in the period');
-select t.ok((select sum(total_cents) from tag_totals()) = (select sum(amount_cents) from expenses), 'and for all time');
+select t.ok((select total_cents from tag_totals('2026-03-01', '2026-04-01') where tag_id is null) = (select sum(amount_cents) from expenses e where spent_on >= '2026-03-01' and spent_on < '2026-04-01' and not exists (select 1 from expense_tags x where x.expense_id = e.id)), '"no tag" is exactly the expenses without any tag');
+select t.ok((select sum(total_cents) from tag_totals()) = (select sum(e.amount_cents) from expenses e join expense_tags x on x.expense_id = e.id) + (select sum(amount_cents) from expenses e where not exists (select 1 from expense_tags x where x.expense_id = e.id)), 'every tagged expense counts once per tag it carries');
 select t.ok((select total_cents from tag_totals('2026-03-01', '2026-03-31') where tag_id = :'vn'::uuid) = 12500, 'a period runs up to its end date (to 31 March counts the 10th and 20th)');
 select t.ok((select total_cents from tag_totals('2026-03-01', '2026-04-02') where tag_id = :'vn'::uuid) = 12500, 'the end date itself is excluded (food on 2 April is out when the period ends 2 April)');
 select t.ok((select total_cents from tag_totals('2026-03-01', '2026-04-03') where tag_id = :'vn'::uuid) = 16500, 'and in when the period ends the day after');
@@ -91,19 +90,19 @@ select t.ok((select count(*) from tag_months(:'qtag'::uuid)) = 0, 'and none for 
 select t.as_user(:P);
 insert into tags (family_id, name, created_by) values (:'fam'::uuid, 'Temp', :P);
 select id as tmp from tags where name = 'Temp' and family_id = :'fam'::uuid \gset
-update expenses set tag_id = :'tmp'::uuid where id = '55555555-0000-0000-0000-000000000006';
+insert into expense_tags (expense_id, tag_id) values ('55555555-0000-0000-0000-000000000006', :'tmp'::uuid);
 delete from tags where id = :'tmp'::uuid;
-select t.ok((select tag_id from expenses where id = '55555555-0000-0000-0000-000000000006') is null and exists (select 1 from expenses where id = '55555555-0000-0000-0000-000000000006'), 'deleting a tag untags its expenses and keeps them');
+select t.ok(not exists (select 1 from expense_tags where expense_id = '55555555-0000-0000-0000-000000000006') and exists (select 1 from expenses where id = '55555555-0000-0000-0000-000000000006'), 'deleting a tag untags its expenses and keeps them');
 
 -- bills carry a default tag onto their payments
 insert into bills (family_id, name, amount_cents, times_per_year, due_month, due_day, tag_id) values (:'fam'::uuid, 'Tagged insurance', 5000, 1, 3, 12, :'vn'::uuid);
 select id as tb from bills where name = 'Tagged insurance' \gset
 select t.fails(format($q$insert into bills (family_id, name, amount_cents, due_month, due_day, tag_id) values (%L::uuid, 'Bad', 100, 1, 1, %L::uuid)$q$, :'fam', :'qtag'), 'a bill cannot carry another family''s tag');
 select mark_bill_paid(:'tb'::uuid, '2026-03-12', 5000, '2026-03-12') as te \gset
-select t.ok((select tag_id from expenses where id = :'te'::uuid) = :'vn'::uuid, 'paying a tagged bill tags the payment');
+select t.ok((select count(*) from expense_tags where expense_id = :'te'::uuid and tag_id = :'vn'::uuid) = 1, 'paying a tagged bill tags the payment');
 select t.ok((select total_cents from tag_totals('2026-03-01', '2026-04-01') where tag_id = :'vn'::uuid) = 17500, 'and it is included in the tag total (12,500 + 5,000)');
 select t.su(); update bills set tag_id = null where id = :'tb'::uuid;
-select t.ok((select tag_id from expenses where id = :'te'::uuid) = :'vn'::uuid, 'changing the bill''s tag later does not rewrite past payments');
+select t.ok((select count(*) from expense_tags where expense_id = :'te'::uuid and tag_id = :'vn'::uuid) = 1, 'changing the bill''s tag later does not rewrite past payments');
 select t.as_user(:C1);
 select t.ok((select count(*) from expenses where bill_id is not null) = 0, 'a child still cannot see bill payments');
 
@@ -115,17 +114,31 @@ insert into expenses (id, family_id, member_id, amount_cents, note, spent_on) va
   ('66666666-0000-0000-0000-000000000003', :'fam'::uuid, :C2, 300, 'sibling', '2026-05-03'),
   ('66666666-0000-0000-0000-000000000004', :'fam'::uuid, :P,  400, 'parent', '2026-05-04');
 select t.as_user(:C1);
-with u as (update expenses set tag_id = :'school'::uuid where id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002', '66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004', :'te'::uuid) returning id) select t.ok((select count(*) from u) = 2, 'a child''s bulk update changes only their own two expenses');
-select t.su();
-select t.ok((select count(*) from expenses where tag_id = :'school'::uuid and id::text like '66666666%') = 2, 'the sibling''s and the parent''s expenses were not touched');
-select t.ok((select tag_id from expenses where id = :'te'::uuid) = :'vn'::uuid, 'and neither was the bill payment');
+insert into expense_tags (expense_id, tag_id) select id, :'school'::uuid from expenses where id::text like '66666666%';
+select t.ok((select count(*) from expense_tags where tag_id = :'school'::uuid and expense_id::text like '66666666%') = 2, 'a child''s bulk tagging reaches only the two expenses they can see');
+select t.fails(format($q$insert into expense_tags (expense_id, tag_id) values ('66666666-0000-0000-0000-000000000003', %L::uuid)$q$, :'school'), 'and tagging a sibling''s expense directly is refused');
 select t.as_user(:P);
-with u as (update expenses set tag_id = :'vn'::uuid where id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002', '66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004', :'te'::uuid) returning id) select t.ok((select count(*) from u) = 4, 'a parent''s bulk update changes the four ordinary expenses but skips the bill payment');
-select t.ok((select count(*) from expenses where tag_id = :'vn'::uuid and id::text like '66666666%') = 4, 'all four now carry the tag');
-with u as (update expenses set tag_id = null where id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002') returning id) select t.ok((select count(*) from u) = 2, 'a bulk update can also remove tags');
-select t.ok((select edited_at from expenses where id = '66666666-0000-0000-0000-000000000001') is null, 'bulk tagging does not mark expenses as edited');
+select t.fails(format($q$insert into expense_tags (expense_id, tag_id) values (%L::uuid, %L::uuid)$q$, :'te', :'school'), 'a bill payment cannot be tagged by hand, even by a parent (mark_bill_paid does it)');
+select t.as_user(:P);
+insert into expense_tags (expense_id, tag_id) select id, :'vn'::uuid from expenses where id::text like '66666666%';
+select t.ok((select count(*) from expense_tags where tag_id = :'vn'::uuid and expense_id::text like '66666666%') = 4, 'a parent bulk-tags all four');
+delete from expense_tags where expense_id in ('66666666-0000-0000-0000-000000000001', '66666666-0000-0000-0000-000000000002') and tag_id = :'vn'::uuid;
+select t.ok((select count(*) from expense_tags where tag_id = :'vn'::uuid and expense_id::text like '66666666%') = 2, 'and removes a tag from two of them');
+select t.ok((select edited_at from expenses where id = '66666666-0000-0000-0000-000000000001') is null, 'tagging does not mark expenses as edited');
 select t.as_user(:Q);
-with u as (update expenses set tag_id = null where id in ('66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004') returning id) select t.ok((select count(*) from u) = 0, 'another family''s bulk update changes nothing');
+delete from expense_tags where expense_id::text like '66666666%';
+select t.su();
+select t.ok((select count(*) from expense_tags where expense_id::text like '66666666%') = 4, 'another family''s delete changes nothing');
 select t.as_user(:P);
-select t.fails(format($q$update expenses set tag_id = %L::uuid where id in ('66666666-0000-0000-0000-000000000003', '66666666-0000-0000-0000-000000000004')$q$, :'qtag'), 'a bulk update cannot attach another family''s tag');
-select t.ok((select count(*) from expenses where id::text like '66666666%' and tag_id = :'qtag'::uuid) = 0, 'and nothing was partly changed');
+
+-- several tags per expense
+insert into tags (family_id, name, created_by) select :'fam'::uuid, 'Extra' || g, :P from generate_series(1, 5) g;
+select array_agg(id order by name) as xs from tags where name like 'Extra%' \gset
+select t.ok(true, 'five more tags exist');
+insert into expense_tags (expense_id, tag_id) select '66666666-0000-0000-0000-000000000004', unnest((:'xs')::uuid[]) limit 4;
+select t.ok((select count(*) from expense_tags where expense_id = '66666666-0000-0000-0000-000000000004') = 5, 'an expense can carry 5 tags (the first tag plus 4 more)');
+select t.fails(format($q$insert into expense_tags (expense_id, tag_id) values ('66666666-0000-0000-0000-000000000004', (select id from tags where name = 'Extra5'))$q$), 'a sixth tag is refused');
+select t.ok((select total_cents from tag_totals('2026-05-01', '2026-06-01') where tag_id = :'vn'::uuid) = 700, 'in the totals the expense counts in full under each of its tags (700 includes the full 400)');
+select t.ok((select count(*) from expenses where id = '66666666-0000-0000-0000-000000000004') = 1, 'while the expense itself still exists once');
+delete from expenses where id = '66666666-0000-0000-0000-000000000004';
+select t.ok((select count(*) from expense_tags where expense_id = '66666666-0000-0000-0000-000000000004') = 0, 'deleting an expense removes its tag links');

@@ -153,7 +153,6 @@ erDiagram
   EXPENSES { uuid id PK
     uuid member_id FK
     uuid category_id FK
-    uuid tag_id FK
     uuid bill_id FK
     int amount_cents
     date spent_on
@@ -227,7 +226,7 @@ Also: view `jar_balances` (sum of `jar_entries` per child and jar), view `goal_t
 * **Bill payments are expenses.** Marking a bill paid inserts a normal expense (flagged with `bill_id`) plus a `bill_payments`
   row. `monthly_fee` is a snapshot taken at payment time: payments of a monthly bill count as everyday spending, payments of
   yearly, half-yearly and quarterly bills are kept apart. Changing a bill later never rewrites past months.
-* **One tag per expense** (`tag_id`), so tag totals plus "no tag" always add up to total spending.
+* **Up to 5 tags per expense**, in the join table `expense_tags(expense_id, tag_id)` (a trigger enforces the limit; RLS follows the expense). An expense counts in full under each of its tags, so tag totals can add up to more than total spending; a filter over several tags counts each expense once (`year_summary_by_tag`, `tags_total` use `exists`). Bill payments get the bill's tag from `mark_bill_paid`. The app asks for `*, expense_tags(tag_id)` and turns it into `tag_ids`.
 * **Edits are stamped.** A trigger records who changed an expense's amount, category, note or date, and when. Clients cannot
   write that stamp.
 
@@ -377,9 +376,9 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 ## 8. Operations
 
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
-  `supabase/migrations/002` to `015` in order (each is safe to run once).
-* **Tests:** 394 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 256 unit tests (`app/src/lib`), and about 630 browser checks against a stubbed backend (`app/e2e`).
+  `supabase/migrations/002` to `017` in order (each is safe to run once).
+* **Tests:** 414 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
+  storage), 257 unit tests (`app/src/lib`), and about 640 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits

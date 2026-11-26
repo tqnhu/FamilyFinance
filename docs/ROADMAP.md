@@ -41,7 +41,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 9 | Receipt reading (amount and shop from a photo) | ❓ Decision | Medium | M–L | in-browser reading or an AI service |
 | 10 | Offline entry (log with no signal, sync later) | 💡 Later | Medium | L | none |
 | 11 | Vietnamese and other languages | ❓ Decision | High if relatives or kids need it | M | who will use it |
-| 12 | More than one tag per expense | 💡 Later | Low–medium | M | none |
+| 12 | More than one tag per expense (up to 5, join table) | ✅ Done | Low–medium | M | none |
 | 13 | Data export (download everything) | 📋 Planned | Medium | S–M | none |
 | 14 | Change email, remove a member, leave a family, delete an account | 📋 Planned | Medium–high | M | decisions on what happens to someone's data |
 | 15 | Automatic tests on every push | 🔜 Next | High | S–M | none |
@@ -158,7 +158,7 @@ Shows where the money went and what share that is.
 
 **#11 Other languages ❓.** Vietnamese first if relatives or kids need it. Move every on-screen text into translation files, then translate and maintain them. Money stays in euros. **Needs from you:** who will use it.
 
-**#12 More than one tag per expense 💡.** Needs a link table. Tag totals would then overlap and no longer add up to total spending, so the reports need reworking.
+**#12 More than one tag per expense ✅.** Decided: a join table `expense_tags(expense_id, tag_id)` (migration 017, `expenses.tag_id` removed), at most 5 tags per expense, and an expense counts in FULL under every tag it carries (no equal split). So per-tag totals can overlap and add up to more than total spending; filtering by several tags counts each expense once. A "group by tag" view of Month was not built because of that overlap. Review's old Tags tab is replaced by a tag filter on Month and Year, and tag and rule management lives in Settings, Configuration.
 
 **#13 Data export 📋.** Download everything as CSV for trust and portability. Client-side, with paging for long histories.
 

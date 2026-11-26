@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const S = process.argv[2]
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
 const now = new Date(), ym = o => new Date(now.getFullYear(), now.getMonth() + o, 1).toLocaleDateString('sv').slice(0, 7)
@@ -50,7 +51,7 @@ async function open(path, o = {}) {
     if (tb === 'expenses') {
       let rows = st.expenses; const cq = u.searchParams.get('category_id'); if (cq && cq.startsWith('eq.')) rows = rows.filter(x => x.category_id === cq.slice(3)); if (u.searchParams.get('bill_id') === 'is.null') rows = rows.filter(x => !x.bill_id)
       for (const r of u.searchParams.getAll('spent_on')) { const [op, ...v] = r.split('.'); const val = v.join('.'); rows = rows.filter(e => op === 'gte' ? e.spent_on >= val : op === 'lt' ? e.spent_on < val : true) }
-      return json([...rows].sort((a, c) => c.spent_on.localeCompare(a.spent_on)))
+      return json(withEt([...rows].sort((a, c) => c.spent_on.localeCompare(a.spent_on))))
     }
     const map = { categories: cats, members: [P, KID], bills: [], bill_payments: [], tags: TAGS }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)
@@ -73,7 +74,7 @@ const open2 = async o => { const x = await open('/plan?tab=rules', opts(o)); awa
   let s = await open2(), pg = s.page
   const head = await txt(pg, 'section.card')
   ok(head.includes('5 expenses are in Other') && head.includes('suggestion for 4') && head.includes('Nothing changes until you do'), 'the summary counts what is in Other (the bill payment is not) and what has a suggestion: ' + head)
-  ok(head.includes('1 has no suggestion') && head.includes('Plan, Rules'), 'and says how many have none and what to do')
+  ok(head.includes('1 has no suggestion') && head.includes('Settings, Configuration'), 'and says how many have none and what to do')
   const rowOf = t => pg.locator(`.tidy-row:has-text("${t}")`)
   ok((await pg.locator('.tidy-row').count()) === 4, 'four rows are listed')
   ok(await rowOf('Lidl Berlin').locator('input').isChecked() && await rowOf('Netflix').locator('input').isChecked() && await rowOf('Sportclub').locator('input').isChecked(), 'the sure ones (starter and your rules) are ticked to start with')
@@ -96,15 +97,15 @@ const open2 = async o => { const x = await open('/plan?tab=rules', opts(o)); awa
   const byCat = c => b.find(x => x.body.category_id === c && !('tag_id' in x.body))
   ok(b.length === 3, 'three updates: one per distinct change, each for many rows: ' + JSON.stringify(b.map(x => [x.ids, x.body])))
   ok(JSON.stringify(b.find(x => x.ids.includes('e1')).body) === '{"category_id":"g"}' && b.find(x => x.ids.includes('e1')).ids.length === 1, 'Lidl moves to Groceries only')
-  ok(JSON.stringify(b.find(x => x.ids.includes('e3')).body) === '{"category_id":"f","tag_id":"t1","annual_fee":true}', 'the rule\'s tag and annual-fee flag are applied to its expense: ' + JSON.stringify(b.find(x => x.ids.includes('e3')).body))
+  ok(JSON.stringify(b.find(x => x.ids.includes('e3')).body) === '{"category_id":"f","annual_fee":true}' && s.log.some(l => l.k === 'POST' && l.tb === 'expense_tags' && JSON.stringify(l.body) === '[{"expense_id":"e3","tag_id":"t1"}]'), 'the rule\'s annual-fee flag is applied to its expense and its tag is added: ' + JSON.stringify(b.find(x => x.ids.includes('e3')).body))
   ok(!b.some(x => x.ids.includes('e4') || x.ids.includes('e5') || x.ids.includes('e7') || x.ids.includes('e6')), 'only the ticked expenses were touched (not the unticked, the unknown, the bill payment or the one already in Groceries)')
   ok((await txt(pg, '.attention')).includes('Moved 3 expenses out of Other') && (await txt(pg, '.attention')).includes('Undo'), 'a result card offers Undo: ' + await txt(pg, '.attention'))
   ok(await pg.locator('.tidy-row').count() === 1 && (await pg.locator('.tidy-row').innerText()).includes('Kramer'), 'the moved ones leave the list, the maybe one is still there')
   ok(s.st.expenses.find(x => x.id === 'e3').annual_fee === true && s.st.expenses.find(x => x.id === 'e1').category_id === 'g', 'and they really changed')
   await pg.click('button:has-text("Undo this move")'); await pg.waitForTimeout(900)
   const back = bulks(s).slice(3)
-  ok(back.length === 2 && back.find(x => x.ids.includes('e1')).ids.includes('e2') && JSON.stringify(back.find(x => x.ids.includes('e3')).body) === '{"category_id":"o","tag_id":null,"annual_fee":false}' && JSON.stringify(back.find(x => x.ids.includes('e1')).body) === '{"category_id":"o"}', 'undo puts back exactly what was changed: ' + JSON.stringify(back.map(x => x.body)))
-  ok(s.st.expenses.filter(x => x.category_id === 'o' && !x.bill_id).length === 5 && s.st.expenses.find(x => x.id === 'e3').annual_fee === false && s.st.expenses.find(x => x.id === 'e3').tag_id === null, 'all five are in Other again, with no tag and no annual flag')
+  ok(back.length === 2 && back.find(x => x.ids.includes('e1')).ids.includes('e2') && JSON.stringify(back.find(x => x.ids.includes('e3')).body) === '{"category_id":"o","annual_fee":false}' && s.log.some(l => l.k === 'DELETE' && l.tb === 'expense_tags' && decodeURIComponent(l.q).includes('expense_id=in.(e3)') && l.q.includes('tag_id=eq.t1')) && JSON.stringify(back.find(x => x.ids.includes('e1')).body) === '{"category_id":"o"}', 'undo puts back exactly what was changed: ' + JSON.stringify(back.map(x => x.body)))
+  ok(s.st.expenses.filter(x => x.category_id === 'o' && !x.bill_id).length === 5 && s.st.expenses.find(x => x.id === 'e3').annual_fee === false, 'all five are in Other again, with no annual flag (and the tag the rule added is taken off again)')
   ok((await txt(pg, '.attention')).includes('Put back') && await pg.locator('.tidy-row').count() === 4, 'the screen says so and shows the suggestions again')
   ok(s.errors.length === 0, 'no page errors: ' + s.errors.join(' | '))
   await s.b.close()

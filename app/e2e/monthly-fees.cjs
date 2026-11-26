@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const fs = require('fs')
 const S = process.argv[2], FX = `${S}/fx`
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
@@ -54,7 +55,7 @@ async function open(path, o = {}) {
       if (q.includes('spent_on=gte') && q.includes('spent_on=lte')) return json(st.existing)
       const rng = u.searchParams.getAll('spent_on'); let rows = st.expenses
       for (const r of rng) { const [op, v] = [r.split('.')[0], r.split('.').slice(1).join('.')]; rows = rows.filter(x => op === 'gte' ? x.spent_on >= v : op === 'lt' ? x.spent_on < v : op === 'lte' ? x.spent_on <= v : true) }
-      return json(rows)
+      return json(withEt(rows))
     }
     const map = { categories: cats, members: [P], bills: st.bills || [], bill_payments: st.payments || [] }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)

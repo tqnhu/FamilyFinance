@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const S = process.argv[2]
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
 const now = new Date(), ym = o => new Date(now.getFullYear(), now.getMonth() + o, 1).toLocaleDateString('sv').slice(0, 7)
@@ -42,7 +43,7 @@ async function open(path, o = {}) {
     if (tb === 'expenses' && u.searchParams.get('category_id') === 'not.is.null') return json(st.history || [])
     if (tb === 'expenses') {
       let rows = st.expenses; for (const r of u.searchParams.getAll('spent_on')) { const [op, ...v] = r.split('.'); const val = v.join('.'); rows = rows.filter(e => op === 'gte' ? e.spent_on >= val : op === 'lt' ? e.spent_on < val : true) }
-      return json([...rows].sort((a, c) => c.spent_on.localeCompare(a.spent_on)))
+      return json(withEt([...rows].sort((a, c) => c.spent_on.localeCompare(a.spent_on))))
     }
     const map = { categories: cats, members: [P, KID], bills: [], bill_payments: [], tags: TAGS }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)
@@ -62,7 +63,7 @@ const txt = (pg, sel) => pg.locator(sel).first().innerText().then(t => t.replace
 ;(async () => {
   /* ===== the Rules tab ===== */
   let s = await open('/plan?tab=rules', { history: [...hist('Kramer Corner Utrecht', 'e', 4), ...hist('Lidl Berlin', 'g', 3), ...hist('Rare Place', 'f', 2), ...hist('Zeta Shop', 't', 3)], expenses: [ex('a', 'o'), ex('b', 'o'), ex('c', 'g'), ex('d', 'g'), ex('y', 'g')] }); let pg = s.page
-  ok(JSON.stringify(await pg.getByRole('tab').allInnerTexts()) === JSON.stringify(['Budgets', 'Bills', 'Import', 'Rules']), 'Plan has a Rules tab')
+  ok(JSON.stringify(await pg.getByRole('tab').allInnerTexts()) === JSON.stringify(['My profile', 'Family', 'Configuration']), 'the old Plan → Rules link lands on Settings, Configuration')
   ok((await txt(pg, 'section:has-text("Automatic categories")')).includes('2 of 5 expenses in the last 30 days are in Other (40%)'), 'it says how much is in Other: ' + await txt(pg, 'section:has-text("Automatic categories")'))
   const learned = await pg.locator('section:has(h2:text-is("Learned from you")) .rule-row').allInnerTexts()
   ok(learned.length === 2 && learned[0].includes('kramer corner') && learned[0].includes('Eating out') && learned[0].includes('4 times') && learned[1].includes('zeta shop'), 'two learned patterns are offered (Lidl is a starter shop, Rare Place has only 2): ' + JSON.stringify(learned.map(x => x.replace(/\n/g, ' '))))
@@ -173,7 +174,8 @@ const txt = (pg, sel) => pg.locator(sel).first().innerText().then(t => t.replace
   await pg.locator('.imp-row:has-text("Albert") select').selectOption({ label: '🍕 Eating out' })
   await pg.click('button.primary:has-text("Import 3")'); await pg.waitForTimeout(1200)
   const imp = expPosts(s), sc = imp.find(r => r.note.includes('Sportclub'))
-  ok(sc.annual_fee === true && sc.tag_id === 't1' && sc.category_id === 'f', 'the rule\'s tag and annual-fee flag are imported with that row: ' + JSON.stringify(sc))
+  const sTags = s.log.filter(l => l.k === 'POST' && l.tb === 'expense_tags').flatMap(l => l.body)
+  ok(sc.annual_fee === true && sc.category_id === 'f' && sTags.some(t => t.expense_id === sc.id && t.tag_id === 't1'), 'the rule\'s tag and annual-fee flag are imported with that row: ' + JSON.stringify([sc, sTags]))
   const made = reqs(s, 'POST').map(r => r.body)
   ok(made.length === 2 && made.some(r => r.pattern === 'paypal' && r.category_id === 't') && made.some(r => r.pattern === 'albert heijn' && r.category_id === 'e'), 'the two categories you changed become rules (one per shop): ' + JSON.stringify(made.map(r => [r.pattern, r.category_id])))
   ok((await pg.locator('.attention').innerText()).includes('2 of your category choices were saved as rules'), 'the result says so: ' + await txt(pg, '.attention'))

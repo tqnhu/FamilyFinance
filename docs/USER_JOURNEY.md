@@ -70,7 +70,7 @@ that exists today, and how we will know it worked.
 ### Stage 2. The first week: build the logging habit
 
 * **Goal.** Make recording an expense so quick that it becomes automatic.
-* **Steps and screens.** Home → "+" → amount, tap a category, save (three taps). Optionally add a note, a tag such as "Vietnam trip", or a receipt photo. Look at Home to see the month so far and the budget bars.
+* **Steps and screens.** Home → "+" → amount, tap a category, save (three taps). Optionally add a note, up to five tags such as "Vietnam trip", or a receipt photo. Look at Home to see the month so far and the budget bars.
 * **Feeling.** Motivated for two or three days, then the **big drop-off risk**: forgetting, or feeling it is too much work.
 * **Friction today.** Everything is manual. There are no reminders to log. Nothing in the app pulls the person back.
 * **Success.** At least three expenses in the first week, from at least two people. This is the single best predictor that the family keeps going.

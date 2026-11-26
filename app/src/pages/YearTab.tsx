@@ -10,7 +10,7 @@ import { useGoals } from '../lib/goals'
 import { useWide } from '../lib/useWide'
 import type { Category } from '../lib/types'
 import type { Tag } from '../lib/tags'
-import { allTimeFor, describeChoice, splitChoice } from '../lib/tagfilter'
+import { describeChoice, splitChoice } from '../lib/tagfilter'
 import TagFilter from '../components/TagFilter'
 import TaggedExpenses from '../components/TaggedExpenses'
 import { CategoryBars, MonthlyChart } from '../components/charts'
@@ -60,7 +60,8 @@ export default function YearTab({ tags, choice, setChoice }: { tags: Tag[]; choi
   useEffect(() => { // what carries the chosen tags over all time
     if (!filtered) return setAllTime(null)
     let alive = true
-    void supabase.rpc('tag_totals', { from_d: null, to_d: null }).then(r => { if (alive && !r.error) setAllTime(allTimeFor((r.data ?? []) as { tag_id: string | null; total_cents: number; n: number }[], choice)) })
+    const { ids, untagged } = splitChoice(choice)
+    void supabase.rpc('tags_total', { tag_ids: ids, include_untagged: untagged }).then(r => { const x = (r.data as { total_cents: number; n: number }[] | null)?.[0]; if (alive && !r.error && x) setAllTime({ total: Number(x.total_cents), n: Number(x.n) }) })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choiceKey, version])

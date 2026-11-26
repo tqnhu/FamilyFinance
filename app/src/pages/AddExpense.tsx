@@ -7,7 +7,8 @@ import { changes } from '../lib/expense'
 import { compressToJpeg } from '../lib/image'
 import { receiptUrl, removeReceipt, uploadReceipt } from '../lib/receipts'
 import { useTags } from '../lib/tags'
-import TagPicker from '../components/TagPicker'
+import TagsPicker from '../components/TagsPicker'
+import { MAX_TAGS, saveTags, tagDiff } from '../lib/expenseTags'
 import { classify, patternFromNote, type Suggestion } from '../lib/classify'
 import { useHistory } from '../lib/useHistory'
 import { useRules, useRuleActions } from '../lib/rules'
@@ -33,7 +34,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
   const [cat, setCat] = useState<string>(expense?.category_id ?? '')
   const [note, setNote] = useState(expense?.note ?? '')
   const [date, setDate] = useState(expense?.spent_on ?? defaultDate ?? today())
-  const [tag, setTag] = useState<string>(expense?.tag_id ?? '')
+  const [tagIds, setTagIds] = useState<string[]>(expense?.tag_ids ?? [])
   const [annual, setAnnual] = useState<boolean>(Boolean(expense?.annual_fee))
 
   // Suggesting a category from the note (new expenses only). A confident suggestion is pre-selected, a less certain one is only offered.
@@ -55,7 +56,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     const s = note.trim().length >= 3 ? classify(note, history, catsRef.current, { rules, cents: centsNow }) : null
     setAuto(s)
     if (s?.source === 'rule') { // a family rule can also say which tag, and that it is an annual fee
-      if (s.tagId && !tagTouched.current) setTag(s.tagId)
+      if (s.tagId && !tagTouched.current) setTagIds(prev => (prev.includes(s.tagId!) || prev.length >= MAX_TAGS ? prev : [...prev, s.tagId!]))
       if (s.annualFee && !annualTouched.current) setAnnual(true)
     }
     const sure = s?.confidence === 'high' ? s.categoryId : ''
@@ -107,13 +108,20 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     setBusy(true); setErr('')
 
     if (expense) {
-      const patch: Record<string, unknown> = { ...changes(expense, { cents, cat, note: note.trim(), date, tag, annual }) }
+      const patch: Record<string, unknown> = { ...changes(expense, { cents, cat, note: note.trim(), date, annual }) }
       let newPath: string | null = null
       try {
         if (photo) { newPath = await uploadReceipt(expense.family_id ?? member!.family_id, expense.id, photo.blob); patch.receipt_path = newPath }
         else if (dropPhoto && expense.receipt_path) patch.receipt_path = null
       } catch (e) { setBusy(false); return setErr(`The photo could not be uploaded: ${e instanceof Error ? e.message : 'unknown error'}`) }
-      if (!Object.keys(patch).length) return onClose()
+      const tagsChanged = (() => { const d = tagDiff(expense.tag_ids ?? [], tagIds); return d.add.length + d.remove.length > 0 })()
+      if (!Object.keys(patch).length && !tagsChanged) return onClose()
+      if (!Object.keys(patch).length) { // only the tags changed
+        const te = await saveTags(expense.id, expense.tag_ids ?? [], tagIds)
+        setBusy(false)
+        if (te) return setErr(`The tags could not be saved: ${te}`)
+        return onSaved()
+      }
       // .select() lets us notice an update that matched no row (the database silently ignores edits you are not allowed to make)
       const { data, error } = await supabase.from('expenses').update(patch).eq('id', expense.id).select('id')
       setBusy(false)
@@ -122,6 +130,10 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
         return setErr(error ? error.message : 'This expense could not be changed. You may not be allowed to edit it.')
       }
       if (newPath || dropPhoto) await removeReceipt(expense.receipt_path) // the old photo is no longer used
+      if (tagsChanged) {
+        const te = await saveTags(expense.id, expense.tag_ids ?? [], tagIds)
+        if (te) return setErr(`The expense was changed, but its tags could not be saved: ${te}`)
+      }
       return onSaved()
     }
 
@@ -129,11 +141,15 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
     const id = crypto.randomUUID()
     const { error } = await supabase.from('expenses').insert({
       id, family_id: member!.family_id, member_id: member!.user_id,
-      category_id: cat, amount_cents: cents, note: note.trim(), spent_on: date, tag_id: tag || null,
+      category_id: cat, amount_cents: cents, note: note.trim(), spent_on: date,
       ...(annual ? { annual_fee: true } : {}),
     })
     if (error) { setBusy(false); return setErr(error.message) }
     let photoProblem = ''
+    if (tagIds.length) {
+      const te = await saveTags(id, [], tagIds)
+      if (te) { setBusy(false); onSaved(); return alert(`The expense was saved, but its tags could not be saved (${te}). Open the expense to add them again.`) }
+    }
     if (photo) {
       try {
         const path = await uploadReceipt(member!.family_id, id, photo.blob)
@@ -194,7 +210,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
         )}
         <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
         <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
-        <TagPicker tags={tags} value={tag} onChange={v => { tagTouched.current = true; setTag(v) }} onCreate={createTag} />
+        <TagsPicker tags={tags} value={tagIds} onChange={v => { tagTouched.current = true; setTagIds(v) }} onCreate={createTag} />
         <label className="annual-opt">
           <input type="checkbox" checked={annual} onChange={e => { annualTouched.current = true; setAnnual(e.target.checked) }} />
           <span>Annual fee<small className="muted"> Paid once a year (insurance, membership). Not counted as monthly spending.</small></span>

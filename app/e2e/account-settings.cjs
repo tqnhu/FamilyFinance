@@ -231,7 +231,7 @@ const text = pg => pg.locator('main').innerText()
   s = await open('/plan?tab=family'); pg = s.page
   ok(new URL(pg.url()).pathname === '/settings' && new URL(pg.url()).searchParams.get('tab') === 'family', 'an old Plan → Family link lands on the new Family settings')
   await pg.goto(ORIGIN + '/plan'); await pg.waitForSelector('[role=tab]')
-  ok(JSON.stringify(await pg.locator('main [role=tab]').allInnerTexts()) === '["Budgets","Bills","Import","Rules"]', 'Plan no longer has a Family tab')
+  ok(JSON.stringify(await pg.locator('main [role=tab]').allInnerTexts()) === '["Budgets","Bills","Import"]', 'Plan no longer has a Family tab')
   await s.b.close()
   s = await open('/'); pg = s.page; await pg.evaluate(() => 0)
   ok(await pg.locator('nav.tabs a').count() === 5, 'the bottom tabs are unchanged (Settings lives in the name menu)')

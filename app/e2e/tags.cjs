@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const S = process.argv[2]
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
 const now = new Date(), ym = o => new Date(now.getFullYear(), now.getMonth() + o, 1).toLocaleDateString('sv').slice(0, 7), Y = now.getFullYear()
@@ -46,7 +47,7 @@ async function open(path, o = {}) {
       log.push({ k: 'GET', tb, q })
       if (u.searchParams.get('tag_id')) return json(st.detail)
       let rows = st.expenses; for (const r of u.searchParams.getAll('spent_on')) { const [op, ...v] = r.split('.'); const val = v.join('.'); rows = rows.filter(x => op === 'gte' ? x.spent_on >= val : op === 'lt' ? x.spent_on < val : true) }
-      return json(rows)
+      return json(withEt(rows))
     }
     const map = { categories: cats, members: [P], bills: st.bills, bill_payments: [] }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)
@@ -56,6 +57,8 @@ async function open(path, o = {}) {
   return { b, page, log, errors, dialogs, st }
 }
 const posts = (s, tb) => s.log.filter(l => l.k === 'POST' && l.tb === tb)
+const dels = (s, tb) => s.log.filter(l => l.k === 'DELETE' && l.tb === tb)
+const tagPosts = s => s.log.filter(l => l.k === 'POST' && l.tb === 'expense_tags').flatMap(l => l.body)
 const patches = (s, tb = 'expenses') => s.log.filter(l => l.k === 'PATCH' && l.tb === tb)
 
 ;(async () => {
@@ -66,9 +69,12 @@ const patches = (s, tb = 'expenses') => s.log.filter(l => l.k === 'PATCH' && l.t
   ok(chips.includes('#Vietnam trip') && chips.includes('#Kitchen') && chips.includes('＋ New tag'), 'the tag picker lists the family\'s tags and a "New tag" button')
   ok(!chips.some(c => c.includes('Old project')), 'archived tags are not offered for a new expense')
   await pg.fill('input[inputmode=decimal]', '120'); await pg.click('.chips >> text=Groceries'); await pg.click('.tagpicker .chip:has-text("#Vietnam trip")')
-  ok(await pg.locator('.tagpicker .chip.on').innerText() === '#Vietnam trip', 'choosing a tag highlights it')
+  ok(await pg.locator('.tagpicker .chip.on').innerText() === '✓ #Vietnam trip', 'choosing a tag highlights it')
+  await pg.click('.tagpicker .chip:has-text("#Kitchen")')
+  ok((await pg.locator('.tagpicker .chip.on').allInnerTexts()).join() === '✓ #Vietnam trip,✓ #Kitchen', 'a second tag can be added: an expense can have several')
   await pg.click('button.primary'); await pg.waitForTimeout(700)
-  ok(posts(s, 'expenses')[0]?.body.tag_id === 't1', 'the new expense is saved with its tag')
+  const newId = posts(s, 'expenses')[0]?.body.id
+  ok(newId && !('tag_id' in posts(s, 'expenses')[0].body) && JSON.stringify(tagPosts(s)) === JSON.stringify([{ expense_id: newId, tag_id: 't1' }, { expense_id: newId, tag_id: 't2' }]), 'the new expense is saved first, then its tags are linked to it: ' + JSON.stringify(tagPosts(s)))
   await s.b.close()
 
   s = await open('/'); pg = s.page
@@ -76,7 +82,7 @@ const patches = (s, tb = 'expenses') => s.log.filter(l => l.k === 'PATCH' && l.t
   await pg.click('.tagpicker .chip:has-text("#Kitchen")'); await pg.click('.tagpicker .chip:has-text("#Kitchen")')
   ok(await pg.locator('.tagpicker .chip.on').count() === 0, 'tapping the chosen tag again clears it')
   await pg.click('button.primary'); await pg.waitForTimeout(600)
-  ok(posts(s, 'expenses')[0]?.body.tag_id === null, 'and the expense is saved without a tag (null)')
+  ok(posts(s, 'expenses').length === 1 && tagPosts(s).length === 0, 'and the expense is saved without any tag (nothing linked)')
   await s.b.close()
 
   s = await open('/'); pg = s.page
@@ -86,37 +92,38 @@ const patches = (s, tb = 'expenses') => s.log.filter(l => l.k === 'PATCH' && l.t
   await pg.fill('.tagpicker input', ' Birthday  party '); await pg.keyboard.press('Enter'); await pg.waitForTimeout(600)
   const tp = posts(s, 'tags')[0]
   ok(tp && tp.body.name === 'Birthday party' && tp.body.family_id === 'f1' && tp.body.created_by === 'p1', 'a new tag is created with a tidy name, the family and who made it')
-  ok(await pg.locator('.tagpicker .chip.on').innerText() === '#Birthday party', 'and is selected straight away')
+  ok(await pg.locator('.tagpicker .chip.on').innerText() === '✓ #Birthday party', 'and is selected straight away')
   await pg.click('button.primary'); await pg.waitForTimeout(700)
-  ok(posts(s, 'expenses')[0]?.body.tag_id === 'tag-new', 'the expense gets the new tag')
+  ok(JSON.stringify(tagPosts(s).map(t => t.tag_id)) === '["tag-new"]', 'the expense gets the new tag')
   await s.b.close()
 
   s = await open('/'); pg = s.page
   await pg.click('button[aria-label="Add expense"]'); await pg.click('.tagpicker >> text=＋ New tag'); await pg.fill('.tagpicker input', '  vietnam   TRIP '); await pg.click('.tagpicker button:text-is("Add")'); await pg.waitForTimeout(500)
-  ok(posts(s, 'tags').length === 0 && await pg.locator('.tagpicker .chip.on').innerText() === '#Vietnam trip', 'typing an existing name (other case, extra spaces) reuses that tag instead of making a copy')
+  ok(posts(s, 'tags').length === 0 && await pg.locator('.tagpicker .chip.on').innerText() === '✓ #Vietnam trip', 'typing an existing name (other case, extra spaces) reuses that tag instead of making a copy')
   await s.b.close()
 
   s = await open('/', { tags: [...baseTags.map(t => ({ ...t })), { id: 't4', name: 'Garden', archived: true }] }); pg = s.page
   await pg.click('button[aria-label="Add expense"]'); await pg.click('.tagpicker >> text=＋ New tag'); await pg.fill('.tagpicker input', 'garden'); await pg.click('.tagpicker button:text-is("Add")'); await pg.waitForTimeout(600)
-  ok(patches(s, 'tags').some(l => l.body.archived === false && l.q.includes('id=eq.t4')) && await pg.locator('.tagpicker .chip.on').innerText() === '#Garden', 'typing the name of an archived tag brings it back instead of failing')
+  ok(patches(s, 'tags').some(l => l.body.archived === false && l.q.includes('id=eq.t4')) && await pg.locator('.tagpicker .chip.on').innerText() === '✓ #Garden', 'typing the name of an archived tag brings it back instead of failing')
   await s.b.close()
 
   /* ===== editing ===== */
-  const tagged = exp('e1', { tag_id: 't1', note: 'flights' }), plain = exp('e2', { note: 'bread' }), oldTag = exp('e3', { tag_id: 't3', note: 'tiles' })
+  const tagged = exp('e1', { tag_ids: ['t1'], note: 'flights' }), plain = exp('e2', { note: 'bread' }), oldTag = exp('e3', { tag_ids: ['t3'], note: 'tiles' })
   s = await open('/', { expenses: [tagged, plain, oldTag] }); pg = s.page
   ok(await pg.locator('[role=button]:has-text("flights") >> text=#Vietnam trip').count() === 1 && await pg.locator('[role=button]:has-text("bread") >> .tagname').count() === 0, 'Home shows the tag on tagged expenses only')
   await pg.locator('[role=button]:has-text("flights")').click()
-  ok(await pg.locator('.tagpicker .chip.on').innerText() === '#Vietnam trip', 'editing shows the current tag selected')
+  ok(await pg.locator('.tagpicker .chip.on').innerText() === '✓ #Vietnam trip', 'editing shows the current tag selected')
   await pg.click('button:text-is("Save changes")'); await pg.waitForTimeout(400)
   ok(patches(s).length === 0, 'saving without changes sends nothing')
   await pg.locator('[role=button]:has-text("flights")').click(); await pg.click('.tagpicker .chip:has-text("#Kitchen")'); await pg.click('button:text-is("Save changes")'); await pg.waitForTimeout(600)
-  ok(patches(s).length === 1 && JSON.stringify(patches(s)[0].body) === '{"tag_id":"t2"}' && patches(s)[0].q.includes('id=eq.e1'), 'changing only the tag sends only the tag')
-  await pg.locator('[role=button]:has-text("flights")').click(); await pg.click('.tagpicker .chip.on'); await pg.click('button:text-is("Save changes")'); await pg.waitForTimeout(600)
-  ok(JSON.stringify(patches(s)[1].body) === '{"tag_id":null}', 'removing the tag sends null')
+  ok(patches(s).length === 0 && JSON.stringify(tagPosts(s)) === '[{"expense_id":"e1","tag_id":"t2"}]' && dels(s, 'expense_tags').length === 0, 'adding a second tag only adds that link (the expense itself is not updated)')
+  await pg.locator('[role=button]:has-text("flights")').click(); await pg.click('.tagpicker .chip.on >> nth=0'); await pg.click('button:text-is("Save changes")'); await pg.waitForTimeout(600)
+  const d1 = dels(s, 'expense_tags')[0]
+  ok(patches(s).length === 0 && d1 && d1.q.includes('expense_id=eq.e1') && decodeURIComponent(d1.q).includes('tag_id=in.(t1)'), 'taking a tag off removes just that link: ' + (d1 && d1.q))
   await pg.locator('[role=button]:has-text("bread")').click(); await pg.click('.tagpicker .chip:has-text("#Vietnam trip")'); await pg.click('button:text-is("Save changes")'); await pg.waitForTimeout(600)
-  ok(JSON.stringify(patches(s)[2].body) === '{"tag_id":"t1"}', 'adding a tag to an untagged expense works')
+  ok(JSON.stringify(tagPosts(s)[1]) === '{"expense_id":"e2","tag_id":"t1"}', 'adding a tag to an untagged expense works')
   await pg.locator('[role=button]:has-text("tiles")').click()
-  ok(await pg.locator('.tagpicker .chip.on').innerText() === '#Old project (archived)', 'an expense with an archived tag still shows it (marked archived)')
+  ok(await pg.locator('.tagpicker .chip.on').innerText() === '✓ #Old project (archived)', 'an expense with an archived tag still shows it (marked archived)')
   ok(s.errors.length === 0, 'no errors editing tags ' + s.errors.join('|'))
   await s.b.close()
 

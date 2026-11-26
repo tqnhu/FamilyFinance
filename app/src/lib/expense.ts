@@ -1,13 +1,12 @@
 import type { Expense } from './types'
 
 /** What changed between the stored expense and the form, as an update payload (empty = nothing to save). */
-export function changes(old: Expense, now: { cents: number; cat: string; note: string; date: string; tag?: string; annual?: boolean }) {
-  const out: { amount_cents?: number; category_id?: string; note?: string; spent_on?: string; tag_id?: string | null; annual_fee?: boolean } = {}
+export function changes(old: Expense, now: { cents: number; cat: string; note: string; date: string; annual?: boolean }) {
+  const out: { amount_cents?: number; category_id?: string; note?: string; spent_on?: string; annual_fee?: boolean } = {}
   if (now.cents !== old.amount_cents) out.amount_cents = now.cents
   if (now.cat && now.cat !== old.category_id) out.category_id = now.cat
   if (now.note !== old.note) out.note = now.note
   if (now.date !== old.spent_on) out.spent_on = now.date
-  if (now.tag !== undefined && now.tag !== (old.tag_id ?? '')) out.tag_id = now.tag || null // '' = no tag
   if (now.annual !== undefined && now.annual !== Boolean(old.annual_fee)) out.annual_fee = now.annual
   return out
 }
@@ -34,14 +33,14 @@ export const NO_TAG = '__none'
  * yearly bill payments are tracked on the Plan page.
  * With a tag chosen: every expense with that tag, bill payments included, so the list matches the tag's total.
  */
-export function visibleExpenses<T extends Pick<Expense, 'bill_id' | 'monthly_fee' | 'tag_id'>>(all: T[], filter: string): T[] {
+export function visibleExpenses<T extends Pick<Expense, 'bill_id' | 'monthly_fee' | 'tag_ids'>>(all: T[], filter: string): T[] {
   if (filter === '') return all.filter(x => !isBillPayment(x))
-  if (filter === NO_TAG) return all.filter(x => !isBillPayment(x) && !x.tag_id)
-  return all.filter(x => x.tag_id === filter)
+  if (filter === NO_TAG) return all.filter(x => !isBillPayment(x) && !x.tag_ids?.length)
+  return all.filter(x => x.tag_ids?.includes(filter))
 }
 
 /** Tag ids that appear on at least one expense (so the filter only offers tags that would show something). */
-export const usedTagIds = (all: Pick<Expense, 'tag_id'>[]): Set<string> => new Set(all.map(x => x.tag_id).filter((t): t is string => Boolean(t)))
+export const usedTagIds = (all: Pick<Expense, 'tag_ids'>[]): Set<string> => new Set(all.flatMap(x => x.tag_ids ?? []))
 
 /** Splits a long list into requests small enough for a URL (a request lists every id it touches). */
 export function chunk<T>(items: T[], size: number): T[][] {
@@ -54,7 +53,7 @@ export function chunk<T>(items: T[], size: number): T[][] {
 /** The sentence shown after a bulk change. `updated` can be lower than `asked`: bill payments and others' expenses are skipped. */
 export function bulkMessage(asked: number, updated: number, tag: string | null): string {
   const what = (n: number) => `${n} ${n === 1 ? 'expense' : 'expenses'}`
-  const done = tag ? `Tagged ${what(updated)} with #${tag}.` : `Removed the tag from ${what(updated)}.`
+  const done = tag ? `Tagged ${what(updated)} with #${tag}.` : `Removed the tags from ${what(updated)}.`
   const skipped = asked - updated
   return skipped > 0 ? `${done} ${what(skipped)} could not be changed (bill payments can only be changed on the Plan page).` : done
 }

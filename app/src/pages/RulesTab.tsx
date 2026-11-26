@@ -19,7 +19,7 @@ const amountText = (r: Pick<Rule, 'min_cents' | 'max_cents'>) =>
       : r.max_cents !== null ? ` and the amount is ${cents(r.max_cents)} or less` : ''
 
 /** Settings → Configuration: what the family has taught the app, and the rules it follows. */
-export default function RulesTab() {
+export default function RulesTab({ onTidying }: { onTidying?: (tidying: boolean) => void } = {}) {
   const { rules, reload } = useRules()
   const actions = useRuleActions(reload)
   const { notes } = useHistory()
@@ -27,7 +27,8 @@ export default function RulesTab() {
   const [recent, setRecent] = useState<{ category_id: string | null }[] | null>(null)
   const [editing, setEditing] = useState<Rule | 'new' | null>(null)
   const [msg, setMsg] = useState('')
-  const [tidy, setTidy] = useState(false)
+  const [tidy, setTidyState] = useState(false)
+  const setTidy = (v: boolean) => { setTidyState(v); onTidying?.(v) }
 
   useEffect(() => {
     void supabase.from('categories').select('*').order('name').then(r => setCats((r.data ?? []) as Category[]))

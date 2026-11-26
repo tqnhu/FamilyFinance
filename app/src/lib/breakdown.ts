@@ -10,7 +10,7 @@ export const SLICE_COLORS = ['#0f766e', '#3b6fd4', '#a65f00', '#c2417a', '#7a5cc
 export const REST_COLOR = '#5b6d67'
 export const MAX_SLICES = 5
 
-type Row = Pick<Expense, 'category_id' | 'tag_id' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on'>
+type Row = Pick<Expense, 'category_id' | 'tag_ids' | 'amount_cents' | 'bill_id' | 'monthly_fee' | 'annual_fee' | 'spent_on'>
 type TagName = { id: string; name: string }
 
 export type Detail = { name: string; cents: number; pct: number; width: number }
@@ -94,10 +94,12 @@ export function breakdown(cur: Row[], prev: Row[] | null, cats: Category[], tags
   const detailsOf = (it: Item): Detail[] => {
     const rows = byCat.get(it.key) ?? []
     const byTag = new Map<string | null, number>()
-    for (const x of rows) byTag.set(x.tag_id ?? null, (byTag.get(x.tag_id ?? null) ?? 0) + x.amount_cents)
+    // an expense with several tags counts in full under each of them (the slices of a category still add up to the category)
+    for (const x of rows) for (const t of x.tag_ids?.length ? x.tag_ids : [null]) byTag.set(t, (byTag.get(t) ?? 0) + x.amount_cents)
     const list = [...byTag.entries()].map(([id, cents]) => ({ id, cents })).sort((a, b) => (a.id === null ? 1 : 0) - (b.id === null ? 1 : 0) || b.cents - a.cents)
-    const t = tenths(list.map(l => l.cents))
-    return list.map((l, i) => ({ name: tagName(l.id), cents: l.cents, pct: t[i] / 10, width: Math.round(t[i] / 10) }))
+    // shares of the category: they can add up to more than 100% when an expense carries several tags
+    const share = (c: number) => (it.cents > 0 ? Math.round((c / it.cents) * 1000) / 10 : 0)
+    return list.map(l => ({ name: tagName(l.id), cents: l.cents, pct: share(l.cents), width: Math.min(100, Math.round(share(l.cents))) }))
   }
 
   const total = sum(c), prevTotal = prev ? sum(p) : null

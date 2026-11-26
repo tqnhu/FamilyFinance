@@ -1,4 +1,5 @@
 const { chromium } = require('playwright')
+const { withEt, flat } = require('./etshim.cjs')
 const S = process.argv[2]
 const SB = 'https://jqvdmqnipozgmhecooil.supabase.co', REF = 'jqvdmqnipozgmhecooil'
 const now = new Date(), ym = o => new Date(now.getFullYear(), now.getMonth() + o, 1).toLocaleDateString('sv').slice(0, 7), Y = now.getFullYear()
@@ -57,7 +58,7 @@ async function open(path, o = {}) {
       if (u.searchParams.get('tag_id')) return json(st.detail)
       let rows = st.expenses; for (const r of u.searchParams.getAll('spent_on')) { const [op, ...v] = r.split('.'); const val = v.join('.'); rows = rows.filter(x => op === 'gte' ? x.spent_on >= val : op === 'lt' ? x.spent_on < val : true) }
       rows = [...rows].sort((a, b) => b.spent_on.localeCompare(a.spent_on) || (b.created_at || '').localeCompare(a.created_at || '')) // every real query asks for newest first
-      return json(rows)
+      return json(withEt(rows))
     }
     const map = { categories: cats, members: [P, KID], bills: st.bills, bill_payments: [] }
     let rows = map[tb] || []; const uid = u.searchParams.get('user_id'); if (tb === 'members' && uid) rows = rows.filter(r => 'eq.' + r.user_id === uid)
@@ -192,7 +193,7 @@ const homeNumber = async (pg, name) => (await pg.locator(`a.catlink:has-text("${
   await pg.waitForSelector('h2:has-text("Transport")'); ok((await pg.locator('.stepper strong').innerText()).length > 0 && await pg.locator('.big').first().innerText() === homeTransport, 'a bad month in the address falls back to this month')
   await s.b.close()
   s = await open('/review', { expenses: data() }); pg = s.page
-  ok(await pg.locator('button[role=tab]:text-is("Tags")').count() === 1, 'the normal Review page (no category) is unchanged for a parent')
+  ok(JSON.stringify(await pg.locator('main [role=tab]').allInnerTexts()) === '["Month","Year"]', 'the normal Review page (no category) shows Month and Year for a parent')
   await s.b.close()
 
   // a child

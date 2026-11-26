@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { WITH_TAGS, withTags } from '../lib/expenseTags'
 import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
 import { categoryExpenses, monthKey, monthOffset, parseMonthKey, separateBillsIn, shiftMonth, sumCents } from '../lib/category'
@@ -30,12 +31,12 @@ export default function CategoryDetail({ categoryId }: { categoryId: string }) {
   const load = useCallback(async () => {
     const [c, e, m] = await Promise.all([
       supabase.from('categories').select('*'),
-      supabase.from('expenses').select('*').gte('spent_on', monthStart(prevStart)).lt('spent_on', nextMonthStart(viewed))
+      supabase.from('expenses').select(WITH_TAGS).gte('spent_on', monthStart(prevStart)).lt('spent_on', nextMonthStart(viewed))
         .order('spent_on', { ascending: false }).order('created_at', { ascending: false }),
       supabase.from('members').select('*'),
     ])
     if (c.error || e.error) setError((c.error ?? e.error)!.message)
-    setCats((c.data ?? []) as Category[]); setBoth((e.data ?? []) as Expense[]); setPeople((m.data ?? []) as Member[]); setLoaded(true)
+    setCats((c.data ?? []) as Category[]); setBoth(withTags(e.data) as unknown as Expense[]); setPeople((m.data ?? []) as Member[]); setLoaded(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   useEffect(() => { void load() }, [load])
