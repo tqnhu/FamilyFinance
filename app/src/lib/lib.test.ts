@@ -870,6 +870,25 @@ describe('pie layout', () => {
       for (const y of ys) { expect(y).toBeGreaterThanOrEqual(14); expect(y).toBeLessThanOrEqual(p0(tiny).height - 18) }
     }
   })
+  it('never puts a label on the pie, whatever the slices look like', () => {
+    const cx = 170, cy = 122, r = 78
+    const sets = [
+      five, [sl('a', 1000, 40), sl('b', 30, 3), sl('c', 30, 3), sl('d', 30, 3), sl('e', 30, 3), sl('f', 1000, 48)],
+      [sl('a', 1, 1), sl('b', 98, 98), sl('c', 1, 1)], // a thin slice at the top, a big one, a thin one at the end
+      [sl('a', 50, 50), sl('b', 1, 0.5), sl('c', 1, 0.5), sl('d', 48, 49)], // thin slices straight up and straight down
+      Array.from({ length: 8 }, (_, i) => sl('n' + i, 100 + i * 10, 12)), Array.from({ length: 12 }, (_, i) => sl('m' + i, 100, 8)),
+      [sl('a', 3, 3), sl('b', 97, 97)],
+    ]
+    for (const items of sets) {
+      for (const s of pieLayout(items).slices) {
+        const { x, y, side } = s.label
+        // the box of the two text lines, from the label's start in the direction the text runs (60 px is a short name)
+        const x0 = side === 'r' ? x : x - 60, x1 = side === 'r' ? x + 60 : x, y0 = y - 13, y1 = y + 15
+        const nx = Math.min(Math.max(cx, x0), x1), ny = Math.min(Math.max(cy, y0), y1) // nearest point of the box to the centre
+        expect(Math.hypot(nx - cx, ny - cy), `${s.id} of ${items.length}`).toBeGreaterThan(r)
+      }
+    }
+  })
   it('shortens long names and ignores empty slices', () => {
     const p = pieLayout([sl('A very long category name indeed', 100, 50), sl('Empty', 0, 0), sl('B', 100, 50)])
     expect(p.slices).toHaveLength(2); expect(p.slices[0].label.name).toBe('A very long categ…')

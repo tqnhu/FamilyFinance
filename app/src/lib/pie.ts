@@ -37,6 +37,16 @@ export function pieLayout(items: PieInput[], o: { width?: number; height?: numbe
     for (let i = col.length - 1; i >= 0; i--) { if (col[i].y > hi) col[i].y = hi; if (i < col.length - 1 && col[i].y > col[i + 1].y - gap) col[i].y = col[i + 1].y - gap }
   }
 
+  // a label must never sit on the pie: where its two lines would overlap the circle (labels pushed towards the middle, or slices
+  // near the top and bottom), move its start out to the circle's edge at that height
+  for (const x of raw) {
+    const top = x.y - 13, bottom = x.y + 15 // the two lines of text
+    const dy = top <= cy && cy <= bottom ? 0 : Math.min(Math.abs(top - cy), Math.abs(bottom - cy))
+    const half = Math.sqrt(Math.max(0, (r + 8) ** 2 - dy ** 2))
+    const need = cx + (x.side === 'r' ? 1 : -1) * (half + tick + 4)
+    if (x.side === 'r' ? x.endX < need : x.endX > need) x.endX = need
+  }
+
   return {
     width, height,
     slices: raw.map(x => ({
