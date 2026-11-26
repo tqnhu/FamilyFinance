@@ -10,7 +10,7 @@ from unnest(array[
   'set_allowance(uuid,integer,integer,integer,integer,integer)', 'add_money(uuid,text,integer,text)', 'move_money(uuid,text,text,integer)',
   'request_purchase(text,text,integer)', 'cancel_request(uuid)', 'decide_purchase(uuid,boolean,text)', 'settle_allowance()', 'child_stats(uuid)',
   'create_goal(text,text,integer,date)', 'contribute_cash(uuid,integer)', 'contribute_from_save(uuid,integer)', 'cancel_goal(uuid)',
-  'mark_bill_paid(uuid,date,integer,date)', 'unmark_bill_paid(uuid)', 'year_summary(integer)', 'year_summary_by_tag(integer,uuid[],boolean)', 'tag_totals(date,date)', 'tag_months(uuid,date,date)', 'tags_total(uuid[],boolean,date,date)',
+  'mark_bill_paid(uuid,date,integer,date)', 'unmark_bill_paid(uuid)', 'year_summary(integer)', 'year_summary_by_tag(integer,uuid[],boolean)', 'tag_totals(date,date)', 'tag_months(uuid,date,date)', 'tags_total(uuid[],boolean,date,date)', 'expenses_with_tags(date,date,uuid[],boolean,integer)',
   'email_for_username(text)', 'is_parent()', 'my_family()']) f;
 
 -- ...and a signed-out visitor can call exactly one: the username lookup used at sign-in
@@ -21,7 +21,7 @@ from unnest(array[
   'set_allowance(uuid,integer,integer,integer,integer,integer)', 'add_money(uuid,text,integer,text)', 'move_money(uuid,text,text,integer)',
   'request_purchase(text,text,integer)', 'cancel_request(uuid)', 'decide_purchase(uuid,boolean,text)', 'settle_allowance()', 'child_stats(uuid)',
   'create_goal(text,text,integer,date)', 'contribute_cash(uuid,integer)', 'contribute_from_save(uuid,integer)', 'cancel_goal(uuid)',
-  'mark_bill_paid(uuid,date,integer,date)', 'unmark_bill_paid(uuid)', 'year_summary(integer)', 'year_summary_by_tag(integer,uuid[],boolean)', 'tag_totals(date,date)', 'tag_months(uuid,date,date)', 'tags_total(uuid[],boolean,date,date)',
+  'mark_bill_paid(uuid,date,integer,date)', 'unmark_bill_paid(uuid)', 'year_summary(integer)', 'year_summary_by_tag(integer,uuid[],boolean)', 'tag_totals(date,date)', 'tag_months(uuid,date,date)', 'tags_total(uuid[],boolean,date,date)', 'expenses_with_tags(date,date,uuid[],boolean,integer)',
   'is_parent()', 'my_family()']) f where pg_temp.can('anon', f);
 select pg_temp.ok(not pg_temp.can('public', 'join_family(text,text)') and not pg_temp.can('public', 'my_family()'), 'nor through the catch-all PUBLIC permission');
 

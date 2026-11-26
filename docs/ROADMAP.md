@@ -158,7 +158,7 @@ Shows where the money went and what share that is.
 
 **#11 Other languages ❓.** Vietnamese first if relatives or kids need it. Move every on-screen text into translation files, then translate and maintain them. Money stays in euros. **Needs from you:** who will use it.
 
-**#12 More than one tag per expense ✅.** Decided: a join table `expense_tags(expense_id, tag_id)` (migration 017, `expenses.tag_id` removed), at most 5 tags per expense, and an expense counts in FULL under every tag it carries (no equal split). So per-tag totals can overlap and add up to more than total spending; filtering by several tags counts each expense once. A "group by tag" view of Month was not built because of that overlap. Review's old Tags tab is replaced by a tag filter on Month and Year, and tag and rule management lives in Settings, Configuration.
+**#12 More than one tag per expense ✅.** Decided: a join table `expense_tags(expense_id, tag_id)` (migration 017, `expenses.tag_id` removed), at most 5 tags per expense, and an expense counts in FULL under every tag it carries (no equal split). So per-tag totals can overlap and add up to more than total spending; choosing several tags in the Review filter narrows the view to expenses that have ALL of them (migration 018); "No tag" stands alone. A "group by tag" view of Month was not built because of that overlap. Review's old Tags tab is replaced by a tag filter on Month and Year, and tag and rule management lives in Settings, Configuration.
 
 **#13 Data export 📋.** Download everything as CSV for trust and portability. Client-side, with paging for long histories.
 

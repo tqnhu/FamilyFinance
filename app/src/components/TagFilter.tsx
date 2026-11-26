@@ -1,7 +1,7 @@
 import type { Tag } from '../lib/tags'
 import { NO_TAG_CHOICE, toggleChoice } from '../lib/tagfilter'
 
-/** Chips under the period arrows: All spending, then each tag, then No tag. Several can be on; they add up. */
+/** Chips under the period arrows: All spending, then each tag, then No tag. Several tags can be on: an expense must have all of them. */
 export default function TagFilter({ tags, choice, onChange }: { tags: Tag[]; choice: string[]; onChange: (c: string[]) => void }) {
   const shown = tags.filter(t => !t.archived || choice.includes(t.id))
   return (

@@ -31,6 +31,10 @@ async function open(path, o = {}) {
       const n = p.split('/').pop(), body = rq.postData() ? JSON.parse(rq.postData()) : {}; log.push({ k: 'rpc', n, body })
       if (n === 'year_summary') return json(st.summary)
       if (n === 'year_summary_by_tag') return json(st.tagSummary || [])
+      if (n === 'expenses_with_tags') {
+        const need = body.tag_ids || []
+        return json(st.expenses.filter(x => x.spent_on >= body.from_d && x.spent_on < body.to_d && (need.length ? need.every(t => tagsOf(x).includes(t)) : body.include_untagged && !tagsOf(x).length)))
+      }
       if (n === 'tags_total') return json([{ total_cents: 249000, n: 38 }])
       return json(n === 'settle_allowance' ? 0 : [])
     }
@@ -289,10 +293,14 @@ const heads = pg => pg.locator('main h2').allInnerTexts()
   ok(s.log.some(l => l.k === 'rpc' && l.n === 'tags_total' && JSON.stringify(l.body.tag_ids) === '["t2"]'), 'the all-time total is asked of the database as a union, so nothing is counted twice')
   ok(await pg.locator('.card:has-text("Expenses")').filter({ hasText: 'both' }).count() >= 1 || (await pg.locator('main').innerText()).includes('both'), 'the expenses behind the tag are listed (the shared one too)')
   await chipRow.getByRole('button', { name: '#Weekly shop' }).click(); await pg.waitForTimeout(500)
-  ok(await text(pg, '.card .big') === '€660', 'two tags are a union: 540 + 100 + 20, the shared one only once: ' + await text(pg, '.card .big'))
+  ok(await text(pg, '.card .big') === '€20', 'two tags narrow it down: only the expense with BOTH tags counts: ' + await text(pg, '.card .big'))
   ok(JSON.stringify(await chipRow.locator('button[aria-pressed=true]').allInnerTexts()) === JSON.stringify(['✓ #Weekly shop', '✓ #Party']), 'chosen tags show a tick')
+  ok(s.log.some(l => l.k === 'rpc' && l.n === 'expenses_with_tags' && JSON.stringify([...l.body.tag_ids].sort()) === '["t1","t2"]'), 'the list behind it is asked for expenses with all the chosen tags')
+  await pg.waitForTimeout(300)
+  const listed = await pg.locator('.card:has(h2:has-text("Expenses tagged")) .row.item').allInnerTexts()
+  ok(listed.length === 1 && listed[0].includes('€20.00'), 'and lists only that expense: ' + JSON.stringify(listed))
   await chipRow.getByRole('button', { name: 'No tag' }).click(); await pg.waitForTimeout(400)
-  ok(await text(pg, '.card .big') === '€2,280', 'No tag joins the union: both tags plus everything untagged is all spending: ' + await text(pg, '.card .big'))
+  ok(await text(pg, '.card .big') === '€1,620' && JSON.stringify(await chipRow.locator('button[aria-pressed=true]').allInnerTexts()) === JSON.stringify(['✓ No tag']), 'No tag stands alone: it clears the tags and shows the untagged spending: ' + await text(pg, '.card .big'))
   await chipRow.getByRole('button', { name: 'All spending' }).click(); await pg.waitForTimeout(400)
   ok(await text(pg, '.card .big') === '€2,280' && await pg.locator('.bd-alltime').count() === 0, 'All spending clears the filter (the shared expense adds its own €20): ' + await text(pg, '.card .big'))
   await chipRow.getByRole('button', { name: '#Party' }).click(); await pg.waitForTimeout(300)

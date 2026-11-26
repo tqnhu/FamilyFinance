@@ -61,31 +61,19 @@ export async function removeTagFromMany(ids: string[], tagId?: string): Promise<
   return { n }
 }
 
-type Loaded = Record<string, unknown> & { id: string; expense_tags?: { tag_id: string }[] | null }
-
 /**
- * The expenses of a period that carry any of the tags (and, if asked, those with no tag), newest first, each once,
- * with ALL their tags. `error` is set when a request failed.
+ * The expenses of a period that carry ALL the chosen tags (or none at all, when asked for untagged), newest first,
+ * with all their tags. `error` is set when a request failed.
  */
-export async function fetchByTags(from: string, to: string, ids: string[], untagged: boolean, limit: number): Promise<{ rows: ReturnType<typeof withTags<Loaded>>; error?: string }> {
-  const found = new Map<string, Loaded>()
-  if (ids.length) {
-    const r = await supabase.from('expenses').select('*, expense_tags!inner(tag_id)').gte('spent_on', from).lt('spent_on', to)
-      .in('expense_tags.tag_id', ids).order('spent_on', { ascending: false }).order('created_at', { ascending: false }).limit(limit)
-    if (r.error) return { rows: [], error: r.error.message }
-    for (const x of (r.data ?? []) as Loaded[]) found.set(x.id, x)
-    for (const part of chunk([...found.keys()], 100)) { // the join above kept only the matching tags: fetch them all
-      const t = await supabase.from('expense_tags').select('expense_id, tag_id').in('expense_id', part)
-      if (t.error) return { rows: [], error: t.error.message }
-      for (const id of part) found.get(id)!.expense_tags = (t.data ?? []).filter(y => y.expense_id === id).map(y => ({ tag_id: y.tag_id as string }))
-    }
+export async function fetchByTags(from: string, to: string, ids: string[], untagged: boolean, limit: number): Promise<{ rows: (Record<string, unknown> & { id: string; tag_ids: string[] })[]; error?: string }> {
+  const r = await supabase.rpc('expenses_with_tags', { from_d: from, to_d: to, tag_ids: ids, include_untagged: untagged, max_rows: limit })
+  if (r.error) return { rows: [], error: r.error.message }
+  const found = (r.data ?? []) as (Record<string, unknown> & { id: string })[]
+  const tagsBy = new Map<string, string[]>()
+  for (const part of chunk(found.map(x => x.id), 100)) {
+    const t = await supabase.from('expense_tags').select('expense_id, tag_id').in('expense_id', part)
+    if (t.error) return { rows: [], error: t.error.message }
+    for (const y of t.data ?? []) tagsBy.set(y.expense_id as string, [...(tagsBy.get(y.expense_id as string) ?? []), y.tag_id as string])
   }
-  if (untagged) {
-    const r = await supabase.from('expenses').select(WITH_TAGS).gte('spent_on', from).lt('spent_on', to)
-      .is('expense_tags', null).order('spent_on', { ascending: false }).order('created_at', { ascending: false }).limit(limit)
-    if (r.error) return { rows: [], error: r.error.message }
-    for (const x of (r.data ?? []) as unknown as Loaded[]) found.set(x.id, x)
-  }
-  const list = withTags([...found.values()]).sort((a, b) => String(b.spent_on).localeCompare(String(a.spent_on)) || String(b.created_at).localeCompare(String(a.created_at)))
-  return { rows: list.slice(0, limit) }
+  return { rows: found.map(x => ({ ...x, tag_ids: tagsBy.get(x.id) ?? [] })) }
 }

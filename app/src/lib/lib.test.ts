@@ -932,13 +932,16 @@ describe('tag filter (several tags at once)', () => {
   const rows = [{ id: 1, tag_ids: ['a'] }, { id: 2, tag_ids: ['b'] }, { id: 3, tag_ids: [] }, { id: 4, tag_ids: ['c'] }, { id: 5 }, { id: 6, tag_ids: ['a', 'b'] }]
   it('shows everything when nothing is chosen', () => { expect(filterByTags(rows, []).map(r => r.id)).toEqual([1, 2, 3, 4, 5, 6]) })
   it('one tag shows only its expenses', () => { expect(filterByTags(rows, ['a']).map(r => r.id)).toEqual([1, 6]) })
-  it('several tags are a union: any of them, an expense carrying two chosen tags still shows once', () => {
-    expect(filterByTags(rows, ['a', 'b']).map(r => r.id)).toEqual([1, 2, 6])
-    expect(filterByTags(rows, ['b', 'a', 'c']).map(r => r.id)).toEqual([1, 2, 4, 6])
+  it('several tags narrow it: only expenses with ALL the chosen tags', () => {
+    expect(filterByTags(rows, ['a', 'b']).map(r => r.id)).toEqual([6])
+    expect(filterByTags(rows, ['b', 'a', 'c'])).toEqual([])
   })
-  it('"No tag" is one more choice in the union, and covers a missing tag too', () => {
+  it('"No tag" stands alone: it matches untagged expenses, and a missing tag list too', () => {
     expect(filterByTags(rows, [NO_TAG_CHOICE]).map(r => r.id)).toEqual([3, 5])
-    expect(filterByTags(rows, ['a', NO_TAG_CHOICE]).map(r => r.id)).toEqual([1, 3, 5, 6])
+  })
+  it('choosing No tag clears the tags, and choosing a tag clears No tag', () => {
+    expect(toggleChoice(['a', 'b'], NO_TAG_CHOICE)).toEqual([NO_TAG_CHOICE]); expect(toggleChoice([NO_TAG_CHOICE], 'a')).toEqual(['a'])
+    expect(toggleChoice([NO_TAG_CHOICE], NO_TAG_CHOICE)).toEqual([])
   })
   it('a tag nobody uses matches nothing', () => { expect(filterByTags(rows, ['zzz'])).toEqual([]) })
   it('splits a choice for the database', () => {
