@@ -914,3 +914,37 @@ describe('chart choice', () => {
     expect(readChart()).toBe('pie')
   })
 })
+
+describe('flow diagram with a tags level', () => {
+  const cat = [{ id: 'g', name: 'Groceries', color: '#0f766e', cents: 72000, pct: 31.9 }, { id: 't', name: 'Transport', color: '#3b6fd4', cents: 48000, pct: 21.2 }]
+  const tags = [{ id: 'g/w', name: 'Weekly shop', color: '#0f766e', cents: 54000, pct: 75 }, { id: 'g/p', name: 'Party', color: '#0f766e', cents: 10000, pct: 14 }, { id: 'g/n', name: 'No tag', color: '#0f766e', cents: 8000, pct: 11 }]
+  const f = flowLayout(cat, { width: 760, bodyHeight: 380, gap: 14, pad: 17, col2: 270, col3: 540, detail: { id: 'g', items: tags } })
+
+  it('opens up the picked category on a third level, drawn to the same scale', () => {
+    expect(f.detail).not.toBeNull()
+    const scale = f.nodes[0].h / 72000
+    expect(f.detail!.nodes.map(n => n.h)).toEqual(tags.map(t => Math.round(t.cents * scale * 100) / 100))
+    expect(f.detail!.nodes.map(n => n.name)).toEqual(['Weekly shop', 'Party', 'No tag'])
+    expect(f.detail!.x).toBe(540); expect(f.rightX).toBe(270)
+  })
+  it('starts at the top of the picked block and keeps small gaps between the parts', () => {
+    const picked = f.nodes[0], d = f.detail!.nodes
+    expect(d[0].y).toBe(picked.y)
+    expect(d[1].y - (d[0].y + d[0].h)).toBeGreaterThanOrEqual(4)
+    expect(f.detail!.ribbons).toHaveLength(3)
+  })
+  it('the parts add up to the category, so the ribbons use all of its block', () => {
+    const total = f.detail!.nodes.reduce((a, n) => a + n.h, 0)
+    expect(Math.abs(total - f.nodes[0].h)).toBeLessThan(0.1)
+  })
+  it('has no third level without a pick, or for an unknown pick', () => {
+    expect(flowLayout(cat).detail).toBeNull()
+    expect(flowLayout(cat, { detail: { id: 'nope', items: tags } }).detail).toBeNull()
+  })
+  it('stays inside the picture when the category sits low and has many parts', () => {
+    const many = Array.from({ length: 6 }, (_, i) => ({ id: 't/' + i, name: 'part ' + i, color: '#000', cents: 8000, pct: 16.6 }))
+    const g = flowLayout(cat, { width: 760, bodyHeight: 380, gap: 14, pad: 17, col2: 270, col3: 540, detail: { id: 't', items: many } })
+    const bottom = Math.max(...g.detail!.nodes.map(n => n.y + n.h))
+    expect(bottom).toBeLessThanOrEqual(g.height)
+  })
+})

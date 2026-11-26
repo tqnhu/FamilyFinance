@@ -103,7 +103,8 @@ Review now has three tabs, **Month**, **Year** and **Tags**.
 * **Budget hint** on each category that has a budget: a thin bar and a sentence ("€280 left of €1,000", "€120 left of €600, nearly used" from 80%, "€60 over its €300 budget"; "Ended €190 under its €1,000 budget" for a finished month). Words as well as colour. Budgets are today's budgets.
 * **Year** shows the total and tiles, **Where the money went** (pie or bars; Bars keeps the yearly budget marks), **Spending by month**, **How the mix changed** and **Goals** (always today's progress).
 * **Removed:** the Breakdown tab, the old "This month" review cards (Wins, Comfortably within budget, Worth a look), the "For your family meeting" card, and the Goals card on the month page (now in Year).
-* **Tests.** 17 unit tests for the pie geometry, the budget hint and the stored choice, and 71 browser checks.
+* **Wide screens (900 px and up).** Only the Review page grows, from the phone column to at most 1,120 px, centred. Month has two columns (the chart left, the category list right; 440 px with the pie, 340 px with Flow); Year puts the pie and its list side by side, draws Spending by month across the full width, and puts How the mix changed beside Goals. Below 900 px nothing changes. **Flow gets three levels on a wide screen**: month total → categories → the tags of the category picked in the list (the list rows then act as a picker, and a link opens that category's expenses). Between 900 and 1,180 px the diagram takes the full width with the list underneath; from 1,180 px the list sits beside it. Between 600 and 900 px Flow stays the compact two-level diagram. Navigation is unchanged (the bottom tab bar).
+* **Tests.** 22 unit tests for the pie geometry, the budget hint, the stored choice and the flow tags level, and 89 browser checks.
 
 ### #23 Where the money goes ✅ (now inside Month and Year, see #27)
 
@@ -216,7 +217,7 @@ Shows where the money went and what share that is.
 * **Working with the data.** Edit and delete expenses, browse older months, receipt photos, CSV bank import with undo, tags with month, year and all-time totals, a Home tag filter and bulk tagging, category previews and detail pages, and where the money goes with shares as a pie, bars or a flow diagram.
 * **Accounts and family.** Forgot-password, an account menu with My profile and Family settings (name, members, invite codes with copy and a ready-made invitation, replacing leaked codes), forgiving invite codes.
 * **Security.** Row-level security on every table, column-level permissions, money rules inside the database, signed-out visitors limited to one function, checked against Supabase's security advisor.
-* **Quality.** 394 database checks, 251 unit tests and about 610 browser checks, plus architecture and user-journey documents.
+* **Quality.** 394 database checks, 256 unit tests and about 630 browser checks, plus architecture and user-journey documents.
 
 ## 6. Decisions log
 

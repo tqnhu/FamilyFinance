@@ -233,3 +233,22 @@ svg.pie { width:100%; max-width:340px; height:auto; display:block; margin:6px au
 .goal-line { display:flex; justify-content:space-between; gap:12px; font-size:.95rem; margin-top:10px } .goal-line .bar { margin:4px 0 0 }
 
 .bd-controls.end { justify-content:flex-end }
+
+.flow-pick { fill:none; stroke:var(--fg); stroke-width:2 } .flow-strong { font-weight:700 } .flow-note { font-size:12px; fill:var(--muted) }
+
+/* Review on a wide screen: the content grows from the phone column to at most 1,120 px, in two columns */
+button.bd-row.picked { background:var(--bg); outline:2px solid var(--brand); border-radius:10px }
+@media (min-width: 900px) {
+  main:has(.review-wide) { max-width:1120px; padding-left:24px; padding-right:24px }
+  body:has(.review-wide) header { max-width:1120px; padding-left:24px; padding-right:24px }
+  .review-wide > .seg { max-width:360px }
+  .rv-grid { display:grid; grid-template-columns:minmax(0,1fr) 340px; gap:24px; align-items:start } .rv-grid.pie { grid-template-columns:minmax(0,1fr) 440px }
+  .rv-grid.flow { grid-template-columns:minmax(0,1fr) } /* the diagram needs the width: the list goes underneath until there is room beside it */
+  .rv-grid > .card { margin:12px 0 0 } .rv-grid.pie .rv-main svg.pie { max-width:560px }
+  .rv-hero-row { display:flex; align-items:center; gap:32px } .rv-hero-row .tiles { flex:1; grid-template-columns:repeat(4,minmax(0,1fr)); margin-top:0 }
+  .rv-where { display:flex; gap:32px; align-items:center } .rv-where > svg.pie { flex:none; width:500px; max-width:500px; margin:0 } .rv-where > .rv-bars, .rv-where > .rv-list { flex:1; min-width:0 }
+  .rv-pair:has(> :only-child) { grid-template-columns:minmax(0,1fr) }
+  .rv-pair { display:grid; grid-template-columns:minmax(0,1fr) 420px; gap:16px; align-items:stretch } .rv-pair > .card { margin:12px 0 }
+}
+
+@media (min-width: 1180px) { .rv-grid.flow { grid-template-columns:minmax(0,1fr) 340px } }

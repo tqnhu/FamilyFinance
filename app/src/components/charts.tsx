@@ -4,8 +4,12 @@ import { MONTHS } from '../lib/bills'
 import { niceAxis, type CatTotal, type YearModel } from '../lib/year'
 
 /* Geometry of the monthly chart, in SVG units. The SVG scales to the card width. */
-const W = 360, H = 230, ML = 46, MR = 8, MT = 20, MB = 24
-const PW = W - ML - MR, PH = H - MT - MB, SLOT = PW / 12, COL = 18, GAP = 2, RADIUS = 4
+const ML = 46, MR = 8, MT = 20, MB = 24, GAP = 2, RADIUS = 4
+/** The chart's size: compact for a phone, roomy for a wide screen (the SVG scales to its card either way). */
+const dims = (wide: boolean) => {
+  const W = wide ? 960 : 360, H = wide ? 260 : 230, PW = W - ML - MR
+  return { W, H, PW, PH: H - MT - MB, SLOT: PW / 12, COL: wide ? 36 : 18 }
+}
 
 /** A column segment: square at the baseline, 4px rounded at the data end when it is the top of the stack. */
 export function segPath(x: number, top: number, w: number, h: number, roundTop: boolean): string {
@@ -29,7 +33,8 @@ function Key({ color, label, line }: { color: string; label: string; line?: bool
 }
 
 /** Twelve stacked columns (everyday + yearly bills) with the monthly budget as a reference line. */
-export function MonthlyChart({ model, year }: { model: YearModel; year: number }) {
+export function MonthlyChart({ model, year, wide = false }: { model: YearModel; year: number; wide?: boolean }) {
+  const { W, H, PH, SLOT, COL } = dims(wide)
   const [hover, setHover] = useState<number | null>(null)
   const [table, setTable] = useState(false)
   const budget = model.monthlyBudget

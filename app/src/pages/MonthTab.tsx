@@ -29,10 +29,12 @@ export default function MonthTab() {
   const [tags, setTags] = useState<{ id: string; name: string }[]>([])
   const [error, setError] = useState('')
   const wide = useWide()
+  const wide2 = useWide(900) // two columns, and the flow diagram with its tags level
 
   const viewed = parseMonthKey(key)!
   const w = monthWindows(key)
   const shown = chart === 'flow' && !wide ? 'pie' : chart // the flow diagram needs a wide screen
+  const flowing = shown === 'flow' && wide2 // on a wide screen the list picks which category's tags the diagram opens up
 
   useEffect(() => {
     let alive = true
@@ -61,6 +63,8 @@ export default function MonthTab() {
   const monthLabel = viewed.toLocaleDateString('en-IE', { month: 'long', year: 'numeric' })
   const isCurrent = monthOffset(key) === 0
   const caption = w.current ? `Everyday spending, 1 to ${w.lastDay} ${monthName(viewed)}` : `Everyday spending in ${monthName(viewed)}`
+  const pickedId = model ? (model.slices.find(s => s.id === open)?.id ?? model.slices[0]?.id) : undefined
+  const pickedSlice = model?.slices.find(s => s.id === pickedId)
   const shares = (m: B) => m.slices.map(s => `${s.name} ${s.pct.toFixed(1)}%`).join(', ')
 
   return (
@@ -81,7 +85,8 @@ export default function MonthTab() {
         <section className="card"><h2>Nothing to show yet</h2><p className="muted">No everyday spending is recorded for {monthLabel}. Add an expense on Home and it will appear here.</p></section>
       ) : (
         <>
-          <section className="card">
+        <div className={`rv-grid ${shown}`}>
+          <section className="card rv-main">
             <p className="muted small">{caption}</p>
             <div className="big">{euroTidy(model.total)}</div>
             {compare && model.delta !== null && model.prevTotal! > 0 && (
@@ -92,21 +97,21 @@ export default function MonthTab() {
             <ChartToggle value={shown} onChange={setChart} flow={wide} />
             {shown === 'pie' && <PieChart slices={model.slices} label={`Pie chart of ${caption.toLowerCase()}: ${shares(model)}`} />}
             {shown === 'bars' && <ShareBar slices={model.slices} label={`Share of spending: ${shares(model)}`} />}
-            {shown === 'flow' && <FlowChart slices={model.slices} total={model.total} title={caption} />}
+            {shown === 'flow' && <FlowChart slices={model.slices} total={model.total} title={caption} pickedId={flowing ? pickedId : undefined} />}
             {model.separateBills > 0 && (
               <p className="muted small bd-apart">Yearly bills and annual fees {w.current ? 'this month' : 'that month'} ({euroTidy(model.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>
             )}
           </section>
 
-          <section className="card">
+          <section className="card rv-side">
             <div className="row"><h2>By category</h2><span className="muted small">Share of {euroTidy(model.total)}</span></div>
             {model.slices.map(s => {
-              const isOpen = (open === undefined ? model.slices[0]?.id : open) === s.id
+              const isOpen = !flowing && (open === undefined ? model.slices[0]?.id : open) === s.id
               const budget = s.categoryId ? cats.find(c => c.id === s.categoryId)?.budget_cents ?? 0 : 0
               const hint = budgetHint(s.cents, budget, !w.current)
               return (
                 <div key={s.id} className="bd-item">
-                  <button className="bd-row" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : s.id)}>
+                  <button className={`bd-row ${flowing && pickedId === s.id ? 'picked' : ''}`} {...(flowing ? { 'aria-pressed': pickedId === s.id } : { 'aria-expanded': isOpen })} onClick={() => setOpen(flowing ? s.id : isOpen ? null : s.id)}>
                     <span className="bd-dot" style={{ background: s.color }} aria-hidden="true" />
                     <span className="bd-main">
                       <span className="bd-name">{s.emoji && `${s.emoji} `}{s.name}</span>
@@ -119,7 +124,7 @@ export default function MonthTab() {
                       )}
                     </span>
                     <span className="bd-nums"><b>{euroTidy(s.cents)}</b><span className="muted small">{s.pct.toFixed(1)}%</span></span>
-                    <span className="bd-chev" aria-hidden="true" style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}>⌄</span>
+                    {!flowing && <span className="bd-chev" aria-hidden="true" style={{ transform: isOpen ? 'rotate(180deg)' : undefined }}>⌄</span>}
                   </button>
                   {isOpen && (
                     <div className="bd-panel" data-testid={`panel-${s.id}`}>
@@ -136,7 +141,9 @@ export default function MonthTab() {
                 </div>
               )
             })}
+            {flowing && pickedSlice?.categoryId && <Link className="bd-link" to={`/review?category=${pickedSlice.categoryId}&month=${key}`}>See all expenses in {pickedSlice.name} ›</Link>}
           </section>
+        </div>
           <p className="muted small">{compare ? `The comparison uses ${w.current ? `the same days of ${prevLong}` : `all of ${prevLong}`}. ` : ''}Monthly fees count as everyday spending in the month charged. Budgets are today's budgets.</p>
         </>
       )}

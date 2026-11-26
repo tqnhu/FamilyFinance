@@ -1,8 +1,8 @@
 # Browser tests
 
 End-to-end checks that drive the real app in Chromium with a **stubbed Supabase** (no network, no real data):
-adding and editing expenses, receipt photos, CSV import, monthly fees, joining a family, tags, the Home filter/bulk tagging, the category preview and detail pages, forgot-password, the account menu, profile and family settings, the getting-started checklist and tab badges, the highlighted upcoming bills in Plan, the Review tabs (Month with pie, bars, flow and budget hints; Year with goals), marking annual fees (import review, expense form, totals), automatic classification (suggestions on the expense form and in the import), the family's rules (Plan → Rules, Remember this choice, import), and Tidy up Other (preview, move, undo).
-They check what is sent to the database and what appears on screen. About 610 checks.
+adding and editing expenses, receipt photos, CSV import, monthly fees, joining a family, tags, the Home filter/bulk tagging, the category preview and detail pages, forgot-password, the account menu, profile and family settings, the getting-started checklist and tab badges, the highlighted upcoming bills in Plan, the Review tabs (Month with pie, bars, flow and budget hints; Year with goals; the wide two-column layout), marking annual fees (import review, expense form, totals), automatic classification (suggestions on the expense form and in the import), the family's rules (Plan → Rules, Remember this choice, import), and Tidy up Other (preview, move, undo).
+They check what is sent to the database and what appears on screen. About 630 checks.
 
 ```bash
 # once: Playwright must be installed (the cloud session has it; elsewhere: npm i -g playwright && npx playwright install chromium)

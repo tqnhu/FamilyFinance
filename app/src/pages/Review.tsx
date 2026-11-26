@@ -9,14 +9,14 @@ import CategoryDetail from './CategoryDetail'
 function ReviewTabs() {
   const [tab, setTab] = useState<'month' | 'year' | 'tags'>('month')
   return (
-    <>
+    <div className="review-wide">
       <div className="seg" role="tablist">
         <button role="tab" aria-selected={tab === 'month'} className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>Month</button>
         <button role="tab" aria-selected={tab === 'year'} className={tab === 'year' ? 'on' : ''} onClick={() => setTab('year')}>Year</button>
         <button role="tab" aria-selected={tab === 'tags'} className={tab === 'tags' ? 'on' : ''} onClick={() => setTab('tags')}>Tags</button>
       </div>
       {tab === 'month' ? <MonthTab /> : tab === 'year' ? <YearTab /> : <TagsView />}
-    </>
+    </div>
   )
 }
 

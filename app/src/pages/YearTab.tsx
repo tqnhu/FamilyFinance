@@ -7,6 +7,7 @@ import { yearModel, type SummaryRow, type YearModel } from '../lib/year'
 import { yearBreakdown, type YearBreakdown } from '../lib/breakdown'
 import { useChart } from '../lib/chartChoice'
 import { useGoals } from '../lib/goals'
+import { useWide } from '../lib/useWide'
 import type { Category } from '../lib/types'
 import { CategoryBars, MonthlyChart } from '../components/charts'
 import PieChart from '../components/PieChart'
@@ -22,6 +23,7 @@ export default function YearTab() {
   const [error, setError] = useState('')
   const [chart, setChart] = useChart()
   const { goals, contribs } = useGoals()
+  const wide2 = useWide(900)
 
   useEffect(() => {
     let alive = true
@@ -57,9 +59,9 @@ export default function YearTab() {
         <button aria-label="Next year" onClick={() => setYear(year + 1)} disabled={year >= thisYear}>›</button>
       </div>
 
-      <section className="card">
-        <p className="muted">Spent in {year}</p>
-        <div className="hero">{euroWhole(model.total)}</div>
+      <section className="card rv-hero-row">
+        <div><p className="muted">Spent in {year}</p>
+        <div className="hero">{euroWhole(model.total)}</div></div>
         <div className="tiles">
           <div className="tile"><span className="muted small">Everyday</span><b>{euroWhole(model.everyday)}</b></div>
           <div className="tile"><span className="muted small">Yearly bills</span><b>{euroWhole(model.bills)}</b></div>
@@ -74,9 +76,11 @@ export default function YearTab() {
         {split.total === 0 ? <p className="muted">No everyday spending recorded in {year} yet.</p> : (
           <>
             <ChartToggle value={shown} onChange={setChart} />
+            <div className="rv-where">
             {shown === 'pie'
               ? <PieChart slices={split.slices} label={`Pie chart of everyday spending in ${year}: ${shares}`} />
-              : <><ShareBar slices={split.slices} label={`Share of the year's spending: ${shares}`} /><CategoryBars categories={model.categories} /></>}
+              : <div className="rv-bars"><ShareBar slices={split.slices} label={`Share of the year's spending: ${shares}`} /><CategoryBars categories={model.categories} /></div>}
+            <div className="rv-list">
             {split.slices.map(s => (
               <div key={s.id} className="bd-item">
                 <div className="bd-row static">
@@ -86,13 +90,16 @@ export default function YearTab() {
                 </div>
               </div>
             ))}
+            </div>
+            </div>
             {split.separateBills > 0 && <p className="muted small bd-apart">Yearly bills and annual fees ({euroTidy(split.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>}
           </>
         )}
       </section>
 
-      <section className="card"><h2>Spending by month</h2><MonthlyChart model={model} year={year} /></section>
+      <section className="card"><h2>Spending by month</h2><MonthlyChart model={model} year={year} wide={wide2} /></section>
 
+      <div className="rv-pair">
       {split.total > 0 && (
         <section className="card">
           <h2>How the mix changed</h2>
@@ -128,6 +135,7 @@ export default function YearTab() {
           <Link className="bd-link" to="/goals">Open Goals ›</Link>
         </section>
       )}
+      </div>
     </div>
   )
 }

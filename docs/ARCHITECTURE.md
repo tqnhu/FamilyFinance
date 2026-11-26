@@ -360,7 +360,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 | 7 | Set monthly budgets per category; add, rename, archive categories | parent | Plan → Budgets | `categories` |
 | 8 | See spending against budgets by month, with warnings from 80% | parent | Home | `expenses`, `categories` |
 | 9 | Hover a category for its 3 latest, click for all its expenses | everyone | Home → Review | `expenses` |
-| 10 | See where a month's money went (pie or bars, flow on wide screens), compared with the month before, with each category's budget hint; browse earlier months | parent | Review → Month | `expenses`, `categories` |
+| 10 | See where a month's money went (pie or bars; flow on wide screens, opening up the tags of a picked category), compared with the month before, with each category's budget hint; browse earlier months | parent | Review → Month | `expenses`, `categories` |
 | 11 | See the year by month and by category (pie or bars), how the mix changed, and goal progress | parent | Review → Year | `year_summary`, `goals` |
 | 12 | Add up spending by tag for a month, a year or all time | parent | Review → Tags | `tag_totals`, `tag_months` |
 | 13 | Track yearly, half-yearly, quarterly and monthly bills; mark paid; see which are coming up (highlighted by urgency); get reminders | parent | Plan → Bills, Home | `bills`, `mark_bill_paid`, `unmark_bill_paid` |
@@ -379,7 +379,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `015` in order (each is safe to run once).
 * **Tests:** 394 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 251 unit tests (`app/src/lib`), and about 610 browser checks against a stubbed backend (`app/e2e`).
+  storage), 256 unit tests (`app/src/lib`), and about 630 browser checks against a stubbed backend (`app/e2e`).
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits
