@@ -13,7 +13,7 @@ const LIMIT = 500
 type Source = Pick<Expense, 'id' | 'note' | 'amount_cents' | 'spent_on' | 'category_id' | 'tag_id' | 'annual_fee'>
 const chipOf = (s: Candidate['source']) => (s === 'history' ? ['learned', 'Learned'] : ['rule', 'Rule'])
 
-/** Plan → Rules → Tidy up Other: move past expenses out of Other with a preview, and undo it straight afterwards. */
+/** Settings → Configuration → Tidy up Other: move past expenses out of Other with a preview, and undo it straight afterwards. */
 export default function TidyUp({ onBack }: { onBack: () => void }) {
   const [cats, setCats] = useState<Category[] | null>(null)
   const [expenses, setExpenses] = useState<Source[] | null>(null)
@@ -102,7 +102,7 @@ export default function TidyUp({ onBack }: { onBack: () => void }) {
             <div className="big">{expenses.length}{expenses.length === LIMIT ? '+' : ''}</div>
             <p>{expenses.length === 1 ? 'expense is' : 'expenses are'} in Other. We have a suggestion for <strong>{rows.length}</strong>.</p>
             <p className="muted small">The sure ones are ticked. Untick any you disagree with, then press the button. Nothing changes until you do.</p>
-            {found.none > 0 && <p className="muted small">{found.none} {found.none === 1 ? 'has' : 'have'} no suggestion. Make a rule for them in Plan, Rules and they will appear here.</p>}
+            {found.none > 0 && <p className="muted small">{found.none} {found.none === 1 ? 'has' : 'have'} no suggestion. Make a rule for them in Settings, Configuration and they will appear here.</p>}
           </section>
 
           {rows.length > 0 && (

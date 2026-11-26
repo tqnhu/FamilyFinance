@@ -252,3 +252,11 @@ button.bd-row.picked { background:var(--bg); outline:2px solid var(--brand); bor
 }
 
 @media (min-width: 1180px) { .rv-grid.flow { grid-template-columns:minmax(0,1fr) 340px } }
+
+/* Review: tag filter chips */
+.tagfilter { display:flex; flex-direction:column; gap:6px; margin:0 0 8px } .tagfilter-label { font-size:.75rem; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); font-weight:600 }
+.tagfilter-chips { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px } .tagfilter-chips .chip { flex:none; min-height:44px }
+.bd-alltime { margin:2px 0 6px; font-size:.9rem }
+.tag-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; min-height:64px }
+.tag-name { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere } .tag-row button { min-height:44px; padding:6px 12px }
+button.static-toggle { display:flex; justify-content:space-between; width:100%; min-height:56px; padding:0; border:0; border-top:1px solid var(--line); border-radius:0; background:none; text-align:left; color:var(--fg) }

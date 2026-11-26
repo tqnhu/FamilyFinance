@@ -183,7 +183,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
             </div>
           </div>
         )}
-        {promptKey && promptKey === remembered && <p className="muted small" role="status">Saved as a rule. You can see and change it in Plan, Rules.</p>}
+        {promptKey && promptKey === remembered && <p className="muted small" role="status">Saved as a rule. You can see and change it in Settings, Configuration.</p>}
         {!editing && !picked && auto && suggestedCat && (
           <div className="suggest" role="status">
             <div><span className={`chip-label ${auto.source === 'history' ? 'learned' : 'rule'}`}>{auto.source === 'history' ? 'Learned' : 'Rule'}</span>

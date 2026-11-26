@@ -18,7 +18,7 @@ const amountText = (r: Pick<Rule, 'min_cents' | 'max_cents'>) =>
     : r.min_cents !== null ? ` and the amount is ${cents(r.min_cents)} or more`
       : r.max_cents !== null ? ` and the amount is ${cents(r.max_cents)} or less` : ''
 
-/** Plan → Rules: what the family has taught the app, and the rules it follows. */
+/** Settings → Configuration: what the family has taught the app, and the rules it follows. */
 export default function RulesTab() {
   const { rules, reload } = useRules()
   const actions = useRuleActions(reload)
@@ -55,7 +55,7 @@ export default function RulesTab() {
         <h2>Automatic categories</h2>
         <p className="muted small">When you add an expense or import a bank file, the app suggests a category. It follows your rules first, then what you have chosen before, then a list of common shops.</p>
         {recent !== null && other && (
-          <p>{recent.length === 0 ? 'No expenses in the last 30 days.' : <><strong>{inOther} of {recent.length}</strong> expenses in the last 30 days are in Other{recent.length ? ` (${Math.round(((inOther ?? 0) / recent.length) * 100)}%)` : ''}. The fewer, the clearer the Breakdown.</>}</p>
+          <p>{recent.length === 0 ? 'No expenses in the last 30 days.' : <><strong>{inOther} of {recent.length}</strong> expenses in the last 30 days are in Other{recent.length ? ` (${Math.round(((inOther ?? 0) / recent.length) * 100)}%)` : ''}. The fewer, the clearer Review.</>}</p>
         )}
         {other ? <button onClick={() => setTidy(true)}>Tidy up Other…</button> : null}
         {msg && <p className="error" role="alert">{msg}</p>}

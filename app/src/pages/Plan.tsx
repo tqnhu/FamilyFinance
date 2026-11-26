@@ -7,28 +7,27 @@ import { FREQ, MONTHS, UPCOMING_DAYS, URGENCY_ICON, comingUp, dueList, dueText, 
 import type { Category } from '../lib/types'
 import Sheet from '../components/Sheet'
 import ImportTab from './ImportTab'
-import RulesTab from './RulesTab'
 import TagPicker from '../components/TagPicker'
 import { useTags } from '../lib/tags'
 
-type Tab = 'budgets' | 'bills' | 'import' | 'rules'
+type Tab = 'budgets' | 'bills' | 'import'
 
 export default function Plan() {
   const [params, setParams] = useSearchParams()
+  if (params.get('tab') === 'rules') return <Navigate to="/settings?tab=config" replace /> // the rules moved to Settings → Configuration
   if (params.get('tab') === 'family') return <Navigate to="/settings?tab=family" replace /> // invite codes moved to Settings
   const tab = (params.get('tab') as Tab) || 'budgets'
   const go = (t: Tab) => setParams(t === 'budgets' ? {} : { tab: t })
   return (
     <>
-      <div className="seg four" role="tablist">
-        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import'], ['rules', 'Rules']] as const).map(([id, label]) => (
+      <div className="seg" role="tablist">
+        {([['budgets', 'Budgets'], ['bills', 'Bills'], ['import', 'Import']] as const).map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go(id)}>{label}</button>
         ))}
       </div>
       {tab === 'budgets' && <BudgetsTab />}
       {tab === 'bills' && <BillsTab />}
       {tab === 'import' && <ImportTab />}
-      {tab === 'rules' && <RulesTab />}
     </>
   )
 }

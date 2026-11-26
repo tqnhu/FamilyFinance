@@ -3,24 +3,25 @@ import { useState } from 'react'
 import { useAuth } from '../auth'
 import MonthTab from './MonthTab'
 import YearTab from './YearTab'
-import TagsView from './TagsView'
+import { useTags } from '../lib/tags'
 import CategoryDetail from './CategoryDetail'
 
 function ReviewTabs() {
-  const [tab, setTab] = useState<'month' | 'year' | 'tags'>('month')
+  const [tab, setTab] = useState<'month' | 'year'>('month')
+  const { tags } = useTags()
+  const [choice, setChoice] = useState<string[]>([]) // the tag filter is kept when moving between Month and Year
   return (
     <div className="review-wide">
       <div className="seg" role="tablist">
         <button role="tab" aria-selected={tab === 'month'} className={tab === 'month' ? 'on' : ''} onClick={() => setTab('month')}>Month</button>
         <button role="tab" aria-selected={tab === 'year'} className={tab === 'year' ? 'on' : ''} onClick={() => setTab('year')}>Year</button>
-        <button role="tab" aria-selected={tab === 'tags'} className={tab === 'tags' ? 'on' : ''} onClick={() => setTab('tags')}>Tags</button>
       </div>
-      {tab === 'month' ? <MonthTab /> : tab === 'year' ? <YearTab /> : <TagsView />}
+      {tab === 'month' ? <MonthTab tags={tags} choice={choice} setChoice={setChoice} /> : <YearTab tags={tags} choice={choice} setChoice={setChoice} />}
     </div>
   )
 }
 
-/** The Review page: Month, Year and Tags for parents, or one category's expenses when opened from Home. */
+/** The Review page: Month and Year for parents, or one category's expenses when opened from Home. */
 export default function Review() {
   const [params] = useSearchParams()
   const { member } = useAuth()

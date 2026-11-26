@@ -172,7 +172,7 @@ export default function ImportTab() {
       {done && (
         <section className="card attention">
           <h2>✅ Imported {done.count} expenses</h2>
-          <p className="muted small">They are on your Home screen under their dates.{done.remembered > 0 ? ` ${done.remembered} of your category choices ${done.remembered === 1 ? 'was' : 'were'} saved as ${done.remembered === 1 ? 'a rule' : 'rules'} (Plan, Rules).` : ''}</p>
+          <p className="muted small">They are on your Home screen under their dates.{done.remembered > 0 ? ` ${done.remembered} of your category choices ${done.remembered === 1 ? 'was' : 'were'} saved as ${done.remembered === 1 ? 'a rule' : 'rules'} (Settings, Configuration).` : ''}</p>
           <button onClick={() => undo({ batch: done.batch, count: done.count })}>Undo this import</button>
         </section>
       )}
@@ -248,7 +248,7 @@ export default function ImportTab() {
           <TagPicker tags={tags} value={tag} onChange={setTag} onCreate={createTag} label="Tag all these expenses (optional), e.g. a holiday statement" />
           <label className="annual-opt">
             <input type="checkbox" checked={remember} onChange={e => setRemember(e.target.checked)} />
-            <span>Remember the categories I choose here<small className="muted"> Only for descriptions where I change the suggestion. You can review them in Plan, Rules.</small></span>
+            <span>Remember the categories I choose here<small className="muted"> Only for descriptions where I change the suggestion. You can review them in Settings, Configuration.</small></span>
           </label>
           {annualChosen.length > 0 && (
             <p className="muted small" role="status">{annualChosen.length} marked as {annualChosen.length === 1 ? 'an annual fee' : 'annual fees'} ({euro(annualTotal)}): kept out of monthly spending, budgets and the breakdown. You can change this later by editing the expense.</p>

@@ -1,6 +1,6 @@
 # Database tests
 
-`jars.sql` (Phase 2), `goals.sql` (Phase 3) and `bills.sql` (Phase 4) and `edit_expenses.sql` (expense editing) and `receipts.sql` (receipt photos, import batches) `monthly_fees.sql`, `tags.sql`, `annual_fee.sql` and `classification_rules.sql`, run in that order, then `join_family.sql` (joining a family) `profile.sql` (profile and family settings) and `privileges.sql` (who may call which function), the last two self-contained, check the money rules (who can do what, balances never go negative,
+`jars.sql` (Phase 2), `goals.sql` (Phase 3) and `bills.sql` (Phase 4) and `edit_expenses.sql` (expense editing) and `receipts.sql` (receipt photos, import batches) `monthly_fees.sql`, `tags.sql`, `annual_fee.sql`, `classification_rules.sql` and `tag_filter.sql`, run in that order, then `join_family.sql` (joining a family) `profile.sql` (profile and family settings) and `privileges.sql` (who may call which function), the last two self-contained, check the money rules (who can do what, balances never go negative,
 allowance catch-up, family isolation) against a scratch Postgres database. It prints `PASS`/`FAIL` lines
 and stops at the first failure.
 
@@ -17,6 +17,7 @@ psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/monthly_fees.sql
 psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/tags.sql
 psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/annual_fee.sql
 psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/classification_rules.sql
+psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/tag_filter.sql
 psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/join_family.sql
 psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/profile.sql
 psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/privileges.sql

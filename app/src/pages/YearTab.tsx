@@ -9,41 +9,66 @@ import { useChart } from '../lib/chartChoice'
 import { useGoals } from '../lib/goals'
 import { useWide } from '../lib/useWide'
 import type { Category } from '../lib/types'
+import type { Tag } from '../lib/tags'
+import { allTimeFor, describeChoice, splitChoice } from '../lib/tagfilter'
+import TagFilter from '../components/TagFilter'
+import TaggedExpenses from '../components/TaggedExpenses'
 import { CategoryBars, MonthlyChart } from '../components/charts'
 import PieChart from '../components/PieChart'
 import ShareBar from '../components/ShareBar'
 import ChartToggle from '../components/ChartToggle'
 
 /** Review → Year: a whole year by month and by category, and the family's goals. */
-export default function YearTab() {
+export default function YearTab({ tags, choice, setChoice }: { tags: Tag[]; choice: string[]; setChoice: (c: string[]) => void }) {
   const thisYear = new Date().getFullYear()
   const [year, setYear] = useState(thisYear)
   const [data, setData] = useState<{ model: YearModel; split: YearBreakdown } | null>(null)
   const [busy, setBusy] = useState(true)
   const [error, setError] = useState('')
+  const [version, setVersion] = useState(0)
+  const [cats, setCats] = useState<Category[]>([])
+  const [allTime, setAllTime] = useState<{ total: number; n: number } | null>(null)
   const [chart, setChart] = useChart()
   const { goals, contribs } = useGoals()
   const wide2 = useWide(900)
 
+  const filtered = choice.length > 0
+  const choiceKey = choice.join(',')
+
   useEffect(() => {
     let alive = true
     setBusy(true)
-    Promise.all([supabase.rpc('year_summary', { y: year }), supabase.from('categories').select('*')]).then(([s, c]) => {
+    const { ids, untagged } = splitChoice(choice)
+    // with a tag chosen the database adds up only those expenses; the budgets are left out (a budget covers all spending)
+    const summary = filtered ? supabase.rpc('year_summary_by_tag', { y: year, tag_ids: ids, include_untagged: untagged }) : supabase.rpc('year_summary', { y: year })
+    Promise.all([summary, supabase.from('categories').select('*')]).then(([s, c]) => {
       if (!alive) return
       if (s.error || c.error) setError((s.error ?? c.error)!.message)
       else {
         setError('')
-        const rows = (s.data ?? []) as SummaryRow[], cats = (c.data ?? []) as Category[]
-        setData({ model: yearModel(rows, cats), split: yearBreakdown(rows, cats) })
+        const rows = (s.data ?? []) as SummaryRow[], all = (c.data ?? []) as Category[]
+        const used = filtered ? all.map(x => ({ ...x, budget_cents: 0 })) : all
+        setCats(all)
+        setData({ model: yearModel(rows, used), split: yearBreakdown(rows, used) })
       }
       setBusy(false)
     })
     return () => { alive = false }
-  }, [year])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, choiceKey, version])
+
+  useEffect(() => { // what carries the chosen tags over all time
+    if (!filtered) return setAllTime(null)
+    let alive = true
+    void supabase.rpc('tag_totals', { from_d: null, to_d: null }).then(r => { if (alive && !r.error) setAllTime(allTimeFor((r.data ?? []) as { tag_id: string | null; total_cents: number; n: number }[], choice)) })
+    return () => { alive = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [choiceKey, version])
 
   const monthsCounted = year === thisYear ? new Date().getMonth() + 1 : 12
   const active = goals.filter(g => g.status === 'active')
   const shown = chart === 'flow' ? 'pie' : chart // the flow diagram is for one month
+  const about = filtered ? ` tagged ${describeChoice(choice, tags)}` : ''
   const mixTotals = useMemo(() => data?.split.mix.map(m => m.cents.reduce((a, b) => a + b, 0)) ?? [], [data])
 
   if (error) return <p className="error">Could not load the year: {error}. Has the latest SQL migration been run?</p>
@@ -59,21 +84,23 @@ export default function YearTab() {
         <button aria-label="Next year" onClick={() => setYear(year + 1)} disabled={year >= thisYear}>›</button>
       </div>
 
+      <TagFilter tags={tags} choice={choice} onChange={setChoice} />
       <section className="card rv-hero-row">
-        <div><p className="muted">Spent in {year}</p>
+        <div><p className="muted">Spent in {year}{about}</p>
         <div className="hero">{euroWhole(model.total)}</div></div>
         <div className="tiles">
           <div className="tile"><span className="muted small">Everyday</span><b>{euroWhole(model.everyday)}</b></div>
-          <div className="tile"><span className="muted small">Yearly bills</span><b>{euroWhole(model.bills)}</b></div>
+          <div className="tile"><span className="muted small">{filtered ? 'Yearly bills and annual fees with these tags' : 'Yearly bills'}</span><b>{euroWhole(model.bills)}</b></div>
           <div className="tile"><span className="muted small">Everyday per month</span><b>{euroWhole(Math.round(model.everyday / monthsCounted))}</b></div>
           <div className="tile"><span className="muted small">Busiest month</span><b>{model.topMonth ? `${MONTHS[model.topMonth.month - 1]} · ${euroWhole(model.topMonth.total)}` : '–'}</b></div>
         </div>
       </section>
-      <p className="muted small">Monthly fees (like a subscription) are counted as Everyday, in the month they were charged. Yearly, half-yearly and quarterly bills and annual fees are shown separately.</p>
+      <p className="muted small">Monthly fees (like a subscription) are counted as Everyday, in the month they were charged. Yearly, half-yearly and quarterly bills and annual fees are shown separately.{filtered ? ' While a tag is chosen, budgets, How the mix changed and Goals are hidden.' : ''}</p>
 
+      {filtered && allTime && <p className="bd-alltime">All time: <b>{euroTidy(allTime.total)}</b> in {allTime.n} {allTime.n === 1 ? 'expense' : 'expenses'}, yearly bills included</p>}
       <section className="card">
         <h2>Where the money went</h2>
-        {split.total === 0 ? <p className="muted">No everyday spending recorded in {year} yet.</p> : (
+        {split.total === 0 ? <p className="muted">{filtered ? `No everyday spending${about} recorded in ${year}.` : `No everyday spending recorded in ${year} yet.`}</p> : (
           <>
             <ChartToggle value={shown} onChange={setChart} />
             <div className="rv-where">
@@ -92,15 +119,16 @@ export default function YearTab() {
             ))}
             </div>
             </div>
-            {split.separateBills > 0 && <p className="muted small bd-apart">Yearly bills and annual fees ({euroTidy(split.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p>}
+            {split.separateBills > 0 ? <p className="muted small bd-apart">Yearly bills and annual fees{about} ({euroTidy(split.separateBills)}) are kept apart. <Link to="/plan">See in Plan</Link></p> : filtered && <p className="muted small bd-apart">No yearly bills or annual fees{about} in {year}.</p>}
           </>
         )}
       </section>
 
       <section className="card"><h2>Spending by month</h2><MonthlyChart model={model} year={year} wide={wide2} /></section>
 
+      {filtered && <TaggedExpenses from={`${year}-01-01`} to={`${year + 1}-01-01`} choice={choice} title={`Expenses${about}`} cats={cats} version={version} onChanged={() => setVersion(v => v + 1)} />}
       <div className="rv-pair">
-      {split.total > 0 && (
+      {!filtered && split.total > 0 && (
         <section className="card">
           <h2>How the mix changed</h2>
           <p className="muted small">Each column is one month, split by each category's share of that month's spending.</p>
@@ -118,7 +146,7 @@ export default function YearTab() {
         </section>
       )}
 
-      {active.length > 0 && (
+      {!filtered && active.length > 0 && (
         <section className="card">
           <h2>Goals</h2>
           <p className="muted small">Progress today, whichever year is open.</p>

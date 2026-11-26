@@ -7,6 +7,7 @@ import { classify, buildHistory, CATEGORY_NAMES, STARTER_RULES, learnedSuggestio
 import { checkRule } from './rules'
 import { applyBatches, tidyCandidates, undoBatches } from './tidy'
 import { pieLayout } from './pie'
+import { NO_TAG_CHOICE, allTimeFor, describeChoice, filterByTags, splitChoice, toggleChoice } from './tagfilter'
 import { budgetHint } from './budget'
 import { readChart } from './chartChoice'
 import { breakdown, monthWindows, splitForComparison, tenths, yearBreakdown } from './breakdown'
@@ -210,50 +211,6 @@ describe('joinMessage', () => {
   })
 })
 
-import { canStep, monthLines, periodLabel, periodNow, periodRange, stepPeriod, tagLines } from './tags'
-describe('tag periods', () => {
-  const p = (kind: 'month' | 'year' | 'all', year = 2026, month = 10) => ({ kind, year, month })
-  it('month, year and all-time ranges, end date exclusive', () => {
-    expect(periodRange(p('month'))).toEqual({ from: '2026-11-01', to: '2026-12-01' })
-    expect(periodRange(p('month', 2026, 11))).toEqual({ from: '2026-12-01', to: '2027-01-01' }) // December rolls into January
-    expect(periodRange(p('month', 2026, 0))).toEqual({ from: '2026-01-01', to: '2026-02-01' })
-    expect(periodRange(p('year'))).toEqual({ from: '2026-01-01', to: '2027-01-01' })
-    expect(periodRange(p('all'))).toEqual({ from: null, to: null })
-  })
-  it('labels', () => {
-    expect(periodLabel(p('month'))).toBe('November 2026'); expect(periodLabel(p('year'))).toBe('2026'); expect(periodLabel(p('all'))).toBe('All time')
-  })
-  it('steps across year ends', () => {
-    expect(stepPeriod(p('month', 2026, 0), -1)).toMatchObject({ year: 2025, month: 11 })
-    expect(stepPeriod(p('month', 2026, 11), 1)).toMatchObject({ year: 2027, month: 0 })
-    expect(stepPeriod(p('year'), -1).year).toBe(2025); expect(stepPeriod(p('all'), 1)).toEqual(p('all'))
-  })
-  it('never steps into the future', () => {
-    const now = new Date('2026-11-15T12:00:00')
-    expect(canStep(periodNow('month', now), 1, now)).toBe(false); expect(canStep(periodNow('month', now), -1, now)).toBe(true)
-    expect(canStep(periodNow('year', now), 1, now)).toBe(false); expect(canStep(p('month', 2026, 9), 1, now)).toBe(true)
-    expect(canStep(p('all'), -1, now)).toBe(false)
-  })
-})
-describe('tag totals', () => {
-  const tags = [{ id: 'a', name: 'Vietnam', archived: false }, { id: 'b', name: 'Kitchen', archived: true }, { id: 'c', name: 'Unused', archived: false }]
-  it('ranks tags, keeps "no tag" apart, and adds up', () => {
-    const r = tagLines([{ tag_id: 'a', total_cents: 5000, n: 3 }, { tag_id: null, total_cents: 900, n: 2 }, { tag_id: 'b', total_cents: 12000, n: 1 }], tags)
-    expect(r.lines.map(l => [l.name, l.total, l.n])).toEqual([['Kitchen', 12000, 1], ['Vietnam', 5000, 3]])
-    expect(r.untagged).toEqual({ total: 900, n: 2 }); expect(r.tagged).toBe(17000); expect(r.all).toBe(17900)
-  })
-  it('ignores unknown tags and empty periods', () => {
-    expect(tagLines([{ tag_id: 'zzz', total_cents: 100, n: 1 }], tags).lines).toEqual([])
-    expect(tagLines([], tags)).toMatchObject({ lines: [], tagged: 0, all: 0, untagged: { total: 0, n: 0 } })
-  })
-  it('breaks ties by name so the order is stable', () => {
-    expect(tagLines([{ tag_id: 'c', total_cents: 5, n: 1 }, { tag_id: 'a', total_cents: 5, n: 1 }], tags).lines.map(l => l.name)).toEqual(['Unused', 'Vietnam'])
-  })
-  it('month rows are oldest first with readable labels', () => {
-    const m = monthLines([{ month: '2026-04-01', total_cents: 4000, n: 1 }, { month: '2025-12-01', total_cents: 1000, n: 1 }])
-    expect(m.map(x => x.label)).toEqual(['Dec 2025', 'Apr 2026']); expect(m[1].total).toBe(4000)
-  })
-})
 describe('expense changes with a tag', () => {
   const old = { id: 'x', member_id: 'm', category_id: 'a', amount_cents: 100, note: '', spent_on: '2026-01-01', tag_id: 't1' }
   const same = { cents: 100, cat: 'a', note: '', date: '2026-01-01' }
@@ -965,5 +922,35 @@ describe('flow diagram with a tags level', () => {
     const g = flowLayout(cat, { width: 760, bodyHeight: 380, gap: 14, pad: 17, col2: 270, col3: 540, detail: { id: 't', items: many } })
     const bottom = Math.max(...g.detail!.nodes.map(n => n.y + n.h))
     expect(bottom).toBeLessThanOrEqual(g.height)
+  })
+})
+
+describe('tag filter (several tags at once)', () => {
+  const rows = [{ id: 1, tag_id: 'a' }, { id: 2, tag_id: 'b' }, { id: 3, tag_id: null }, { id: 4, tag_id: 'c' }, { id: 5 }]
+  it('shows everything when nothing is chosen', () => { expect(filterByTags(rows, []).map(r => r.id)).toEqual([1, 2, 3, 4, 5]) })
+  it('one tag shows only its expenses', () => { expect(filterByTags(rows, ['a']).map(r => r.id)).toEqual([1]) })
+  it('several tags are a union: any of them, never counted twice', () => {
+    expect(filterByTags(rows, ['a', 'b']).map(r => r.id)).toEqual([1, 2])
+    expect(filterByTags(rows, ['b', 'a', 'c']).map(r => r.id)).toEqual([1, 2, 4])
+  })
+  it('"No tag" is one more choice in the union, and covers a missing tag too', () => {
+    expect(filterByTags(rows, [NO_TAG_CHOICE]).map(r => r.id)).toEqual([3, 5])
+    expect(filterByTags(rows, ['a', NO_TAG_CHOICE]).map(r => r.id)).toEqual([1, 3, 5])
+  })
+  it('a tag nobody uses matches nothing', () => { expect(filterByTags(rows, ['zzz'])).toEqual([]) })
+  it('splits a choice for the database', () => {
+    expect(splitChoice(['a', NO_TAG_CHOICE, 'b'])).toEqual({ ids: ['a', 'b'], untagged: true }); expect(splitChoice([])).toEqual({ ids: [], untagged: false })
+  })
+  it('toggles a choice on and off', () => { expect(toggleChoice([], 'a')).toEqual(['a']); expect(toggleChoice(['a', 'b'], 'a')).toEqual(['b']) })
+  it('describes a choice in words', () => {
+    const tags = [{ id: 'a', name: 'Vietnam trip' }, { id: 'b', name: 'Party' }, { id: 'c', name: 'Kitchen' }]
+    expect(describeChoice([], tags)).toBe(''); expect(describeChoice(['a'], tags)).toBe('#Vietnam trip')
+    expect(describeChoice(['a', 'b'], tags)).toBe('#Vietnam trip and #Party'); expect(describeChoice(['a', 'b', 'c'], tags)).toBe('#Vietnam trip, #Party and #Kitchen')
+    expect(describeChoice(['b', NO_TAG_CHOICE], tags)).toBe('#Party and no tag'); expect(describeChoice(['gone'], tags)).toBe('') // a deleted tag is left out
+  })
+  it('adds up the all-time totals of the chosen tags (tag_totals rows, null = no tag)', () => {
+    const totals = [{ tag_id: 'a', total_cents: 249000, n: 38 }, { tag_id: 'b', total_cents: 5000, n: 2 }, { tag_id: null, total_cents: 99999, n: 400 }]
+    expect(allTimeFor(totals, ['a'])).toEqual({ total: 249000, n: 38 }); expect(allTimeFor(totals, ['a', 'b'])).toEqual({ total: 254000, n: 40 })
+    expect(allTimeFor(totals, [NO_TAG_CHOICE])).toEqual({ total: 99999, n: 400 }); expect(allTimeFor(totals, ['zzz'])).toEqual({ total: 0, n: 0 })
   })
 })

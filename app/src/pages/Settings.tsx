@@ -5,21 +5,26 @@ import { useAuth } from '../auth'
 import { FAMILY_NAME_MAX, NAME_MAX, PASSWORD_MIN, inviteText, nameProblem, passwordProblem, saveNameMessage, usernameMessage } from '../lib/profile'
 import type { Member } from '../lib/types'
 import { showChecklistAgain } from '../components/GettingStarted'
+import ConfigTab from './ConfigTab'
 
 const date = (iso: string) => new Date(iso).toLocaleDateString('en-IE', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function Settings() {
   const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'family' ? 'family' : 'profile'
+  const { member } = useAuth()
+  const isParent = member?.role === 'parent'
+  const asked = params.get('tab')
+  const tab = asked === 'family' ? 'family' : asked === 'config' && isParent ? 'config' : 'profile' // the rules and tags are for parents
+  const tabs = [['profile', 'My profile'], ['family', 'Family'], ...(isParent ? [['config', 'Configuration']] : [])] as const
   return (
     <>
       <h1 className="page-title">Settings</h1>
       <div className="seg" role="tablist">
-        {([['profile', 'My profile'], ['family', 'Family']] as const).map(([id, label]) => (
+        {tabs.map(([id, label]) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => setParams({ tab: id }, { replace: true })}>{label}</button>
         ))}
       </div>
-      {tab === 'profile' ? <ProfileTab /> : <FamilyTab />}
+      {tab === 'profile' ? <ProfileTab /> : tab === 'family' ? <FamilyTab /> : <ConfigTab />}
     </>
   )
 }

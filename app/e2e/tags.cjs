@@ -128,91 +128,38 @@ const patches = (s, tb = 'expenses') => s.log.filter(l => l.k === 'PATCH' && l.t
   ok(posts(s, 'bills')[0]?.body.tag_id === 't2', 'a bill is saved with its default tag')
   await s.b.close()
 
-  /* ===== the report ===== */
+  /* ===== managing tags: Settings → Configuration ===== */
   const totals = [{ tag_id: 't1', total_cents: 12500, n: 3 }, { tag_id: 't2', total_cents: 4000, n: 1 }, { tag_id: null, total_cents: 900, n: 2 }, { tag_id: 'gone', total_cents: 77, n: 1 }]
-  const detail = [exp('d1', { tag_id: 't1', note: 'flights', amount_cents: 10000, spent_on: `${ym(0)}-10` }), exp('d2', { tag_id: 't1', note: 'hotel', amount_cents: 2000, spent_on: `${ym(0)}-12`, category_id: 'h', bill_id: 'b1' }), exp('d3', { tag_id: 't1', note: 'food', amount_cents: 500, spent_on: `${ym(0)}-14` })]
-  const months = [{ month: `${ym(-1)}-01`, total_cents: 4000, n: 1 }, { month: `${ym(0)}-01`, total_cents: 12500, n: 3 }]
-  s = await open('/review', { totals, detail, months }); pg = s.page
-  await pg.click('button[role=tab]:text-is("Tags")'); await pg.waitForSelector('.bar-row')
-  const cur = s.log.filter(l => l.n === 'tag_totals').pop().body
-  ok(cur.from_d === `${ym(0)}-01` && cur.to_d === `${ym(1)}-01`, `the report starts on this month (${cur.from_d} to ${cur.to_d})`)
-  const rows = await pg.locator('.bar-row').allInnerTexts()
-  ok(rows.length === 2 && rows[0].includes('#Vietnam trip') && rows[0].includes('€125') && rows[0].includes('3') && rows[1].includes('#Kitchen') && rows[1].includes('€40'), 'tags are ranked by total with counts: ' + rows.map(r => r.replace(/\n/g, ' ')).join(' | '))
-  const txt = await pg.locator('main').innerText()
-  ok(txt.includes('€165') && /Without a tag\s*€9\b/.test(txt) && /All spending\s*€174/.test(txt), 'tagged €165 + untagged €9 = all spending €174 (unknown tag ignored)')
-  ok(txt.includes('Not tagged: €9.00 in 2 expenses'), 'a line says how much is untagged')
-  await pg.screenshot({ path: `${S}/ui/tags-overview.png`, fullPage: true })
-  await pg.click('[aria-label="Period"] button:text-is("Year")'); await pg.waitForTimeout(500)
-  const yr = s.log.filter(l => l.n === 'tag_totals').pop().body
-  ok(yr.from_d === `${Y}-01-01` && yr.to_d === `${Y + 1}-01-01`, 'Year asks for the whole calendar year')
-  await pg.click('[aria-label="Period"] button:text-is("All time")'); await pg.waitForTimeout(500)
-  const all = s.log.filter(l => l.n === 'tag_totals').pop().body
-  ok(all.from_d === null && all.to_d === null && await pg.locator('.stepper').count() === 0, 'All time has no date limits and no previous/next buttons')
-  await pg.click('[aria-label="Period"] button:text-is("Month")'); await pg.waitForTimeout(500)
-  ok(await pg.locator('button[aria-label="Next month"]').isDisabled(), 'cannot step into a future month')
-  await pg.click('button[aria-label="Previous month"]'); await pg.waitForTimeout(500)
-  const prev = s.log.filter(l => l.n === 'tag_totals').pop().body
-  ok(prev.from_d === `${ym(-1)}-01` && prev.to_d === `${ym(0)}-01`, 'stepping back moves to last month')
-
-  // detail
-  await pg.click('[aria-label="Period"] button:text-is("Year")'); await pg.waitForTimeout(500)
-  await pg.locator('.bar-row:has-text("Vietnam trip")').focus(); await pg.keyboard.press('Enter'); await pg.waitForSelector('text=All tags')
-  const dm = s.log.filter(l => l.n === 'tag_months').pop().body, dq = s.log.filter(l => l.k === 'GET' && l.q.includes('tag_id=eq.t1')).pop()
-  ok(dm.tag === 't1' && dm.from_d === `${Y}-01-01` && dm.to_d === `${Y + 1}-01-01`, 'a tag opens with the keyboard and asks for its months in the chosen year')
-  ok(dq && dq.q.includes(`spent_on=gte.${Y}-01-01`) && dq.q.includes(`spent_on=lt.${Y + 1}-01-01`) && dq.q.includes('limit=300'), 'and its expenses in the same period, capped at 300')
-  const dt = await pg.locator('main').innerText()
-  ok(dt.includes('#Vietnam trip') && dt.includes('€165'), 'the detail header shows the tag total for the period (4,000 + 12,500 = €165)')
-  ok((await pg.locator('.card:has(h2:text-is("By month")) .bar-row').allInnerTexts()).length === 2, 'by month: one row per month with spending')
-  ok(await pg.locator('.card:has(h2:text-is("Expenses")) .row.item').count() === 3, 'the expenses with that tag are listed')
-  ok(await pg.locator('.row.item:has-text("hotel") >> text=bill').count() === 1 && await pg.locator('.row.item:has-text("hotel")').getAttribute('role') === null, 'a bill payment is listed, labelled, and not editable here')
-  await pg.screenshot({ path: `${S}/ui/tags-detail.png`, fullPage: true })
-  await pg.locator('.row.item:has-text("flights")').click()
-  ok(await pg.locator('h2:text-is("Edit expense")').isVisible() && await pg.locator('.tagpicker .chip.on').innerText() === '#Vietnam trip', 'tapping an expense opens the editor with its tag')
-  await pg.click('.tagpicker .chip.on'); await pg.click('button:text-is("Save changes")'); await pg.waitForTimeout(700)
-  ok(JSON.stringify(patches(s).pop().body) === '{"tag_id":null}' && s.log.filter(l => l.n === 'tag_totals').length >= 6, 'untagging from here saves and refreshes the totals')
-  // month period: no month breakdown
-  await pg.click('text=All tags'); await pg.click('[aria-label="Period"] button:text-is("Month")'); await pg.waitForTimeout(500)
-  await pg.locator('.bar-row:has-text("Vietnam trip")').click(); await pg.waitForSelector('text=All tags')
-  ok(await pg.locator('h2:text-is("By month")').count() === 0, 'within a single month there is no per-month breakdown')
-  ok(s.errors.length === 0, 'no errors in the report ' + s.errors.join('|'))
+  s = await open('/settings?tab=config', { totals }); pg = s.page
+  await pg.waitForSelector('.tag-row')
+  ok(JSON.stringify(await pg.locator('main [role=tab]').allInnerTexts()) === '["My profile","Family","Configuration"]', 'Settings has a Configuration tab next to My profile and Family')
+  const rowsText = await pg.locator('.tag-row').allInnerTexts()
+  const rt = rowsText.map(x => x.replace(/\n/g, ' '))
+  ok(rt.length === 2 && rt.some(x => x.includes('#Kitchen') && x.includes('1 expense ')) && rt.some(x => x.includes('#Vietnam trip') && x.includes('3 expenses')), 'active tags are listed with how many expenses carry them: ' + JSON.stringify(rowsText.map(x => x.replace(/\n/g, ' '))))
+  ok((await pg.locator('main').innerText()).includes('Automatic categories'), 'the rules follow the tags in the same tab')
+  ok(await pg.locator('.tag-row:has-text("Old project")').count() === 0 && await pg.getByRole('button', { name: /Archived tags \(1\)/ }).count() === 1, 'archived tags are folded away')
+  await pg.getByRole('button', { name: /Archived tags/ }).click()
+  ok(await pg.locator('.tag-row:has-text("Old project")').count() === 1 && await pg.getByRole('button', { name: 'Restore #Old project' }).count() === 1, 'and open on request, with a Restore button')
+  await pg.getByRole('button', { name: 'Restore #Old project' }).click(); await pg.waitForTimeout(400)
+  ok(patches(s, 'tags').some(l => l.body.archived === false && l.q.includes('id=eq.t3')), 'Restore un-archives that tag')
+  await pg.screenshot({ path: `${S}/ui/tags-config.png`, fullPage: true })
   await s.b.close()
 
-  // rename / archive
-  s = await open('/review', { totals, detail, months, promptAnswer: '  Vietnam   2026 ' }); pg = s.page
-  await pg.click('button[role=tab]:text-is("Tags")'); await pg.waitForSelector('.bar-row'); await pg.locator('.bar-row:has-text("Vietnam trip")').click(); await pg.waitForSelector('text=All tags')
-  await pg.click('button:text-is("Rename")'); await pg.waitForTimeout(500)
+  s = await open('/settings?tab=config', { totals, promptAnswer: '  Vietnam   2026 ' }); pg = s.page
+  await pg.waitForSelector('.tag-row'); await pg.getByRole('button', { name: 'Rename #Vietnam trip' }).click(); await pg.waitForTimeout(500)
   const rn = patches(s, 'tags')[0]; ok(rn && rn.body.name === 'Vietnam 2026' && rn.q.includes('id=eq.t1'), 'renaming tidies the name and updates that tag')
   await s.b.close()
-  s = await open('/review', { totals, detail, months, promptAnswer: 'Kitchen', patchError: { tb: 'tags', code: '23505', message: 'duplicate' } }); pg = s.page
-  await pg.click('button[role=tab]:text-is("Tags")'); await pg.waitForSelector('.bar-row'); await pg.locator('.bar-row:has-text("Vietnam trip")').click(); await pg.waitForSelector('text=All tags')
-  await pg.click('button:text-is("Rename")'); await pg.waitForTimeout(500)
-  ok(s.dialogs.some(d => d.type === 'alert' && d.msg.includes('already have a tag')), 'renaming to an existing name explains the problem')
+  s = await open('/settings?tab=config', { totals, promptAnswer: 'Kitchen', patchError: { tb: 'tags', code: '23505', message: 'duplicate' } }); pg = s.page
+  await pg.waitForSelector('.tag-row'); await pg.getByRole('button', { name: 'Rename #Vietnam trip' }).click(); await pg.waitForTimeout(500)
+  ok((await pg.locator('[role=alert]').first().innerText()).includes('already have a tag'), 'renaming to an existing name explains the problem')
   await s.b.close()
-  s = await open('/review', { totals, detail, months }); pg = s.page
-  await pg.click('button[role=tab]:text-is("Tags")'); await pg.waitForSelector('.bar-row'); await pg.locator('.bar-row:has-text("Kitchen")').click(); await pg.waitForSelector('text=All tags')
-  await pg.click('button:text-is("Archive")'); await pg.waitForTimeout(600)
-  ok(patches(s, 'tags').some(l => l.body.archived === true && l.q.includes('id=eq.t2')) && s.dialogs.some(d => d.type === 'confirm' && d.msg.includes('stay in these totals')), 'archiving asks first, explains the expenses keep the tag, then archives')
-  ok(await pg.locator('text=All tags').count() === 0, 'and returns to the list')
+  s = await open('/settings?tab=config', { totals }); pg = s.page
+  await pg.waitForSelector('.tag-row'); await pg.getByRole('button', { name: 'Archive #Kitchen' }).click(); await pg.waitForTimeout(600)
+  ok(patches(s, 'tags').some(l => l.body.archived === true && l.q.includes('id=eq.t2')) && s.dialogs.some(d => d.type === 'confirm' && d.msg.includes('stay in the totals')), 'archiving asks first, explains the expenses keep the tag, then archives')
   await s.b.close()
-
-  // empty states
-  s = await open('/review', { tags: [], totals: [] }); pg = s.page
-  await pg.click('button[role=tab]:text-is("Tags")'); await pg.waitForSelector('text=No tags yet')
-  ok((await pg.locator('main').innerText()).includes('Add a tag when you add or edit an expense'), 'with no tags at all, it explains how to start')
-  await s.b.close()
-  s = await open('/review', { totals: [{ tag_id: null, total_cents: 500, n: 1 }] }); pg = s.page
-  await pg.click('button[role=tab]:text-is("Tags")'); await pg.waitForSelector('text=No tagged spending')
-  ok((await pg.locator('main').innerText()).includes('No tagged spending in this period'), 'with tags but none used in the period, it says so')
-  await s.b.close()
-
-  // import tagging
-  s = await open('/plan?tab=import'); pg = s.page
-  await pg.setInputFiles('input[type=file]', `${S}/fx/card.csv`); await pg.waitForSelector('.imp-row')
-  ok((await pg.locator('.tagpicker .muted').innerText()).includes('Tag all'), 'the import offers one tag for the whole file')
-  for (const sel of await pg.locator('.imp-row select').all()) await sel.selectOption({ label: '🛒 Groceries' }) // this family has no "Other" category, so each row needs one
-  await pg.click('.tagpicker .chip:has-text("#Vietnam trip")'); await pg.click('button.primary:has-text("Import")'); await pg.waitForTimeout(900)
-  const imp = posts(s, 'expenses').flatMap(l => l.body)
-  ok(imp.length > 0 && imp.every(r => r.tag_id === 't1'), `all ${imp.length} imported expenses carry the chosen tag`)
+  s = await open('/settings?tab=config', { tags: [], totals: [] }); pg = s.page
+  await pg.waitForSelector('text=No tags yet')
+  ok((await pg.locator('main').innerText()).includes('Make one while adding an expense'), 'with no tags at all, it explains how to start')
   await s.b.close()
 
   console.log(results.join('\n')); process.exit(failed ? 1 : 0)
