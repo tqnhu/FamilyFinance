@@ -7,7 +7,7 @@ export function decodeCsv(buf: ArrayBuffer): string {
   try { return new TextDecoder('utf-8', { fatal: true }).decode(buf) } catch { return new TextDecoder('windows-1252').decode(buf) }
 }
 
-export type Table = { headers: string[]; rows: string[][] }
+export type Table = { headers: string[]; rows: string[][]; /** true when the file has no header row, so every line is a transaction */ headerless?: boolean }
 
 /**
  * Parses CSV text (any of , ; tab | as separator, quoted fields, BOM). Some banks print summary lines above the
@@ -22,7 +22,19 @@ export function parseCsv(text: string): Table {
   for (const r of all) counts.set(r.length, (counts.get(r.length) ?? 0) + 1)
   const usual = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0]
   const at = all.findIndex(r => r.length === usual)
-  return { headers: all[at], rows: all.slice(at + 1).filter(r => r.length === usual) }
+  const first = all[at]
+  if (looksLikeData(first)) {
+    // Some banks export only the transactions. Treating the first one as column names would silently drop it.
+    return { headers: first.map((_, i) => `Column ${i + 1}`), rows: all.slice(at).filter(r => r.length === usual), headerless: true }
+  }
+  return { headers: first, rows: all.slice(at + 1).filter(r => r.length === usual) }
+}
+
+/** A real header names its columns; a transaction has a date in one cell and an amount in another. */
+function looksLikeData(row: string[]): boolean {
+  const dateAt = row.findIndex(c => parseDate(c) !== null || parseDate(c, 'mdy') !== null)
+  if (dateAt < 0) return false
+  return row.some((c, i) => i !== dateAt && /\d/.test(c) && parseAmount(c) !== null)
 }
 
 /* ---------- amounts ---------- */

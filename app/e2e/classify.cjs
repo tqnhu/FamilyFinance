@@ -129,6 +129,17 @@ const typeNote = async (pg, t) => { await pg.fill('.sheet label:has-text("Note")
   ok(s.errors.length === 0, 'no page errors: ' + s.errors.join(' | '))
   await s.b.close()
 
+  /* ===== a bank file without a header row: the first transaction must not be lost ===== */
+  s = await open('/plan?tab=import'); pg = s.page
+  await pg.setInputFiles('input[type=file]', { name: 'nohead.csv', mimeType: 'text/csv', buffer: Buffer.from('15-03-2026,Albert Heijn 1042,-23.45\n16-03-2026,Bakkerij Kramer,-4.20\n17-03-2026,Salary,2500.00') }); await pg.waitForSelector('.imp-row'); await pg.waitForTimeout(400)
+  const info = await pg.locator('p:has-text("no header row")').innerText()
+  ok(info.startsWith('3 rows') && info.includes('the first line is a transaction'), 'the file says it has no header row and counts all lines: ' + info)
+  ok(await pg.locator('.imp-row').count() === 2 && await pg.locator('.imp-row:has-text("Albert Heijn 1042")').count() === 1, 'the first debit is among the transactions (2 expenses, the salary skipped)')
+  ok((await pg.locator('text=expenses found').innerText()).includes('2 expenses found') && (await pg.locator('text=expenses found').innerText()).includes('1 incoming payments skipped'), 'summary: ' + await pg.locator('text=expenses found').innerText())
+  await pg.click('button.primary:has-text("Import 2")'); await pg.waitForTimeout(800)
+  ok(posts(s).length === 2 && posts(s).some(r => r.note === 'Albert Heijn 1042' && r.amount_cents === 2345 && r.spent_on === '2026-03-15'), 'both are imported, the first with the right date and amount')
+  await s.b.close()
+
   console.log(results.join('\n')); console.log(`\n${results.filter(r => r.startsWith('PASS')).length} passed, ${results.filter(r => r.startsWith('FAIL')).length} failed`)
   process.exit(failed ? 1 : 0)
 })().catch(e => { console.log(results.join('\n')); console.error('CRASH', e); process.exit(1) })

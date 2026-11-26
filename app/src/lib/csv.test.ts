@@ -166,3 +166,32 @@ describe('duplicates', () => {
     expect(markDuplicates(rows, [])).toEqual([false, false, false, false])
   })
 })
+
+describe('files without a header row', () => {
+  const body = ['15-03-2026,Albert Heijn 1042,-23.45', '16-03-2026,Bakkerij Kramer,-4.20', '17-03-2026,Salary,2500.00']
+  it('keeps the first transaction instead of using it as column names', () => {
+    const t = parseCsv(body.join('\n'))
+    expect(t.headerless).toBe(true); expect(t.rows).toHaveLength(3); expect(t.rows[0][1]).toBe('Albert Heijn 1042')
+    expect(t.headers).toEqual(['Column 1', 'Column 2', 'Column 3'])
+  })
+  it('still treats a real header as a header', () => {
+    const t = parseCsv(['Date,Description,Amount', ...body].join('\n'))
+    expect(t.headerless).toBeUndefined(); expect(t.rows).toHaveLength(3); expect(t.headers).toEqual(['Date', 'Description', 'Amount'])
+  })
+  it('does not mistake a bank\'s summary lines or a header with numbers for data', () => {
+    const t = parseCsv(['Account statement', 'Period 01-03-2026 to 31-03-2026', 'Datum;Omschrijving;Bedrag', '15-03-2026;Albert Heijn;-23,45', '16-03-2026;Coop;-4,20'].join('\n'))
+    expect(t.headerless).toBeUndefined(); expect(t.headers).toEqual(['Datum', 'Omschrijving', 'Bedrag']); expect(t.rows).toHaveLength(2)
+  })
+  it('a headerless file reads end to end, every debit counted', () => {
+    const t = parseCsv(body.join('\n'))
+    const m = detectMapping(t)
+    expect([m.date, m.amount, m.description]).toEqual([0, 2, 1])
+    const r = readExpenses(t, m, { dateOrder: 'dmy', expensesAre: detectSign(t, m) })
+    expect(r.rows.map(x => [x.date, x.cents, x.note])).toEqual([['2026-03-15', 2345, 'Albert Heijn 1042'], ['2026-03-16', 420, 'Bakkerij Kramer']])
+    expect(r.skipped.income).toBe(1) // the salary
+  })
+  it('also works with a semicolon file and an Af/Bij column', () => {
+    const t = parseCsv('20260315;Albert Heijn;NL12INGB;Af;23,45\n20260316;Zoe;NL99INGB;Bij;10,00')
+    expect(t.headerless).toBe(true); expect(t.rows).toHaveLength(2)
+  })
+})

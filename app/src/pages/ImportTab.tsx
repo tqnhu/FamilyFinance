@@ -162,7 +162,7 @@ export default function ImportTab() {
       {table && mapping && (
         <section className="card">
           <h2>{fileName}</h2>
-          <p className="muted small">{table.rows.length} rows. Check that we found the right columns:</p>
+          <p className="muted small">{table.rows.length} rows{table.headerless ? ', no header row (the first line is a transaction and is included)' : ''}. Check that we found the right columns:</p>
           {select('Date', mapping.date < 0 ? null : mapping.date, v => setMapping({ ...mapping, date: v ?? -1 }))}
           {select('Amount', mapping.amount < 0 ? null : mapping.amount, v => setMapping({ ...mapping, amount: v ?? -1 }))}
           {select('Description', mapping.description < 0 ? null : mapping.description, v => setMapping({ ...mapping, description: v ?? -1 }))}
