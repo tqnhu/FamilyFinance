@@ -23,15 +23,17 @@ type Props = {
   nameOf?: (id: string) => string
   /** Date to start a new expense on (defaults to today). */
   defaultDate?: string
+  /** Category to start a new expense in (the category page uses it). */
+  defaultCategory?: string
 }
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-IE', { day: 'numeric', month: 'short', year: 'numeric' })
 
-export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, defaultDate }: Props) {
+export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, defaultDate, defaultCategory }: Props) {
   const { member } = useAuth()
   const editing = Boolean(expense)
   const [amount, setAmount] = useState(expense ? (expense.amount_cents / 100).toFixed(2) : '')
-  const [cat, setCat] = useState<string>(expense?.category_id ?? '')
+  const [cat, setCat] = useState<string>(expense?.category_id ?? defaultCategory ?? '')
   const [note, setNote] = useState(expense?.note ?? '')
   const [date, setDate] = useState(expense?.spent_on ?? defaultDate ?? today())
   const [tagIds, setTagIds] = useState<string[]>(expense?.tag_ids ?? [])
@@ -47,7 +49,7 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
   const [remembered, setRemembered] = useState('')
   const [rememberErr, setRememberErr] = useState('')
   const centsNow = parseEuro(amount) ?? undefined
-  const [picked, setPicked] = useState(false) // once the person taps a category, the suggestion never overrides them
+  const [picked, setPicked] = useState(Boolean(defaultCategory)) // once the person taps a category, the suggestion never overrides them
   const [auto, setAuto] = useState<Suggestion>(null)
   const autoSet = useRef('') // the category the suggestion selected, so it can be taken back when the note changes
   const catsRef = useRef(cats); catsRef.current = cats

@@ -57,6 +57,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 25 | Annual fees from a bank import kept out of monthly spending | ✅ Done | High | S–M | none |
 | 26 | Automatic classification: rules plus learning from your own choices | ✅ Phases 1 to 3 done, phase 4 later | High (fewer "Other", faster entry and import) | M for phases 2 and 3, one new table | #25 (done) |
 | 27 | Review redesigned: Month and Year with a pie, budget hints, Goals in Year | ✅ Done | High | M | #23 (done) |
+| 28 | Home: left to spend, then category tiles (tightest first) | ✅ Done | High (answers "can we spend today?") | S–M | none |
 
 ## 2. Done in the latest release
 

@@ -6,6 +6,7 @@ import { useAuth } from '../auth'
 import { euro, monthStart, nextMonthStart } from '../lib/money'
 import { categoryExpenses, monthKey, monthOffset, parseMonthKey, separateBillsIn, shiftMonth, sumCents } from '../lib/category'
 import { isSeparateBill } from '../lib/expense'
+import { isoDate } from '../lib/bills'
 import type { Category, Expense, Member } from '../lib/types'
 import AddExpense from './AddExpense'
 import Bar from '../components/Bar'
@@ -25,6 +26,7 @@ export default function CategoryDetail({ categoryId }: { categoryId: string }) {
   const [both, setBoth] = useState<Expense[]>([]) // this month and the one before, for the comparison
   const [people, setPeople] = useState<Member[]>([])
   const [editing, setEditing] = useState<Expense | null>(null)
+  const [adding, setAdding] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [error, setError] = useState('')
 
@@ -95,6 +97,8 @@ export default function CategoryDetail({ categoryId }: { categoryId: string }) {
       <ExpenseList expenses={thisMonth.filter(x => x.category_id === categoryId)} cats={cats} title="Expenses" nameOf={nameOf} canEdit={canEdit}
         onEdit={setEditing} onChanged={() => void load()} />
 
+      <button className="fab" aria-label={`Add expense to ${cat.name}`} onClick={() => setAdding(true)}>+</button>
+      {adding && <AddExpense cats={cats.filter(c => !c.archived)} defaultCategory={categoryId} defaultDate={key === monthKey(new Date()) ? undefined : isoDate(new Date(viewed.getFullYear(), viewed.getMonth() + 1, 0))} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); void load() }} />}
       {editing && (
         <AddExpense expense={editing} cats={cats.filter(c => !c.archived || c.id === editing.category_id)} nameOf={nameOf}
           onClose={() => setEditing(null)} onSaved={() => { setEditing(null); void load() }} />

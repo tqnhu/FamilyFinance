@@ -115,7 +115,7 @@ body:has(.actionbar) .fab { display:none }
 /* Home: a category is a link, with a preview of its 3 latest expenses on hover or keyboard focus */
 .catlink { display:block; position:relative; color:inherit; text-decoration:none; border-radius:10px; padding:4px 6px; margin:4px -6px }
 .catlink:hover, .catlink:focus-visible { background:color-mix(in srgb, var(--fg) 5%, transparent); outline:none }
-.cat-pop { position:absolute; left:0; right:0; top:100%; z-index:8; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+.cat-pop { display:block; position:absolute; left:0; right:0; top:100%; z-index:8; background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:12px; padding:10px 12px;
   box-shadow:0 8px 24px #0003; opacity:0; visibility:hidden; pointer-events:none; transition:opacity .12s, visibility 0s .12s }
 .catlink:hover .cat-pop, .catlink:focus-visible .cat-pop { opacity:1; visibility:visible; transition-delay:.25s, .25s } /* a short pause, so sweeping the pointer across rows does not flicker */
 .pop-head { font-weight:600; margin-bottom:6px } .pop-row { display:grid; grid-template-columns:52px 1fr auto; gap:8px; padding:3px 0; font-size:.9rem }
@@ -260,3 +260,15 @@ button.bd-row.picked { background:var(--bg); outline:2px solid var(--brand); bor
 .tag-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center; min-height:64px }
 .tag-name { display:flex; flex-direction:column; min-width:0; overflow-wrap:anywhere } .tag-row button { min-height:44px; padding:6px 12px }
 button.static-toggle { display:flex; justify-content:space-between; width:100%; min-height:56px; padding:0; border:0; border-top:1px solid var(--line); border-radius:0; background:none; text-align:left; color:var(--fg) }
+
+/* Home: left to spend, and the category tiles */
+.leftcard .big { font-size:3rem; line-height:1.05 }
+.tiles { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px; margin:8px 0 16px }
+.tile { display:flex; flex-direction:column; gap:6px; min-height:96px; margin:0; padding:12px; background:var(--card); border:1px solid var(--line); border-radius:14px; position:relative }
+.tile .bar { margin:0 }
+.tile-name { font-weight:600; overflow-wrap:anywhere }
+.tile-left { font-size:1.35rem; font-weight:700; font-variant-numeric:tabular-nums }
+.tile-left.over { color:var(--bad) }
+.tile .cat-pop { left:0; right:auto; width:max(100%, 240px) }
+@media (min-width: 700px) { .tiles { grid-template-columns:repeat(3, minmax(0,1fr)) } }
+.cat-pop > .pop-head, .cat-pop > .pop-foot, .cat-pop > .muted { display:block }

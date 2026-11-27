@@ -91,7 +91,7 @@ const data = () => [
 ]
 const pop = (pg, id) => pg.locator(`#pop-${id}`)
 const popRows = async (pg, id) => (await pop(pg, id).locator('.pop-row').allInnerTexts()).map(x => x.replace(/\n+/g, ' | '))
-const homeNumber = async (pg, name) => (await pg.locator(`a.catlink:has-text("${name}") .row`).first().innerText()).match(/€[\d,]+\.\d\d/)[0]
+const homeNumber = async (pg, name) => (await pg.locator(`a.catlink:has-text("${name}")`).first().getAttribute('aria-label')).match(/€[\d,]+\.\d\d/)[0]
 
 ;(async () => {
   /* ===== the hover preview ===== */
@@ -204,6 +204,21 @@ const homeNumber = async (pg, name) => (await pg.locator(`a.catlink:has-text("${
   await s.b.close()
   s = await open('/review', { expenses: [], asKid: true }); pg = s.page
   await pg.waitForTimeout(500); ok(new URL(pg.url()).pathname === '/', 'a child who types /review with no category is sent back to Home')
+  await s.b.close()
+
+  /* ===== Home: left to spend, and the category tiles ===== */
+  s = await open('/', { expenses: data() }); pg = s.page
+  const hero = (await pg.locator('.leftcard').innerText()).replace(/\n/g, ' ')
+  ok(hero.includes('Left to spend this month') && hero.includes('€5.20') && hero.includes('spent of €150') && hero.includes('days left'), 'Home opens with the left-to-spend card (€150 budgeted, €144.80 spent, so €5.20 left): ' + hero)
+  const order = await pg.locator('a.tile .tile-name').allInnerTexts()
+  ok(JSON.stringify(order.map(x => x.replace(/^\S+\s/, ''))) === JSON.stringify(['Transport', 'Fun', 'Old hobby', 'Groceries']), 'tiles are sorted tightest first (over budget, then the closest to its limit, then no budget by amount): ' + JSON.stringify(order))
+  const tt = await pg.locator('a.tile:has-text("Transport")').innerText()
+  ok(tt.includes('over') && tt.includes('of €100'), 'a tile says how much is left or over, and spent of budget: ' + tt.replace(/\n/g, ' '))
+  ok((await pg.locator('a.tile:has-text("Groceries")').innerText()).includes('No budget'), 'a category without a budget shows what was spent and says so')
+  await pg.locator('a.tile:has-text("Transport")').click(); await pg.waitForSelector('h2:has-text("Transport")')
+  ok(s.log.filter(l => l.k === 'POST').length === 0, 'tapping a tile only opens its details (nothing is added)')
+  await pg.click('button[aria-label="Add expense to Transport"]'); await pg.waitForTimeout(300)
+  ok(JSON.stringify(await pg.locator('.sheet .chips').first().locator('.chip.on').allInnerTexts()) === JSON.stringify(['🚌 Transport']), 'the + button on the category page starts a new expense in that category')
   await s.b.close()
 
   console.log(results.join('\n')); process.exit(failed ? 1 : 0)

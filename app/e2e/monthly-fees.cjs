@@ -82,9 +82,9 @@ const expenses = [
 ]
 ;(async () => {
   let s = await open('/', { expenses, bills }), pg = s.page
-  const big = await pg.locator('.big').first().innerText()
-  ok(big === '€62.99', 'Home total counts groceries + the monthly fee, not the yearly insurance: ' + big)
-  const cat = await pg.locator('.card:has(h2:text-is("By category"))').innerText()
+  const big = await pg.locator('.leftcard').innerText()
+  ok(big.includes('€62.99 spent'), 'Home spending counts groceries + the monthly fee, not the yearly insurance: ' + big.replace(/\n/g, ' '))
+  const cat = await pg.locator('section:has(h2:text-is("By category"))').innerText()
   ok(cat.includes('Fun') && cat.includes('€12.99'), 'the monthly fee shows in its own category (Fun)')
   ok(!cat.includes('Home & bills') && !cat.includes('605'), 'the yearly insurance does not appear in the category bars')
   ok((await pg.locator('text=Not counted').innerText()).includes('€605.00'), 'the note names only the yearly bill: ' + (await pg.locator('text=Not counted').innerText()))
