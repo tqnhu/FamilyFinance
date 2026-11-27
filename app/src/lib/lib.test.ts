@@ -955,3 +955,12 @@ describe('tag filter (several tags at once)', () => {
     expect(describeChoice(['b', NO_TAG_CHOICE], tags)).toBe('#Party and no tag'); expect(describeChoice(['gone'], tags)).toBe('') // a deleted tag is left out
   })
 })
+
+import { screenOf } from './usage'
+describe('usage screens', () => {
+  it('maps addresses to the counted screens', () => {
+    expect(screenOf('/')).toBe('home'); expect(screenOf('/review')).toBe('review'); expect(screenOf('/review/x')).toBe('review')
+    expect(screenOf('/plan')).toBe('plan'); expect(screenOf('/jars')).toBe('jars'); expect(screenOf('/goals')).toBe('goals'); expect(screenOf('/settings')).toBe('settings')
+  })
+  it('counts nothing for other addresses', () => { expect(screenOf('/budgets')).toBeNull(); expect(screenOf('/nope')).toBeNull(); expect(screenOf('/reviewer')).toBeNull() })
+})

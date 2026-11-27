@@ -13,6 +13,7 @@ import Settings from './pages/Settings'
 import ResetPassword from './pages/ResetPassword'
 import UserMenu from './components/UserMenu'
 import { badgeText, useBadges } from './lib/badges'
+import { useTrackScreens } from './lib/usage'
 
 function Shell() {
   const { session, member, loading, recovering } = useAuth()
@@ -32,6 +33,7 @@ const Badge = ({ n, what }: { n: number; what: string }) =>
 function Frame() {
   const { member, family } = useAuth()
   const badges = useBadges()
+  useTrackScreens(member?.user_id)
   if (!member) return null
   return (
     <>

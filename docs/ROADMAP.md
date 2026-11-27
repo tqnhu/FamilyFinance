@@ -51,7 +51,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 19 | Username lookup exposes an email address | ❓ Decision | Low now, high before opening to strangers | M–L | see the decision log |
 | 20 | Smaller JavaScript bundle and paging for long lists | 💡 Later | Low–medium | S and M | none |
 | 21 | Privacy policy and terms | 💡 Later | Required before opening to others | S (writing), possibly legal review | none |
-| 22 | Measure it: KPI queries, then first-party usage events | 🔜 Next | High (shows what to build next) | S for the queries (written), M for usage events | none |
+| 22 | Measure it: KPI queries, then first-party usage events | ✅ Done | High (shows what to build next) | S for the queries (written), M for usage events | none |
 | 23 | Where the money goes: spending broken down by category, with shares | ✅ Done | High | M | none |
 | 24 | Income tracking (spending as a share of income, a savings slice) | 📋 Planned | Medium–high | M–L | A decision on how income is recorded |
 | 25 | Annual fees from a bank import kept out of monthly spending | ✅ Done | High | S–M | none |
@@ -199,7 +199,7 @@ Shows where the money went and what share that is.
 
 **#21 Privacy policy and terms 💡.** Not needed for your own family. Required before opening the app to others, because it holds children's data. The writing is S and may need legal review.
 
-**#22 Measure it 🔜.** Step one is done: [kpi-queries.sql](kpi-queries.sql) holds 16 read-only queries behind the metrics in section 7, checked against a scratch database. Run them weekly, by hand. Step two (M): a small `usage_events` table (who, when, which screen or action, never an amount) so that visits, such as opening the monthly review, can be counted too. It needs a decision on retention and on how children's activity is recorded, so it waits until the queries show a need.
+**#22 Measure it ✅.** [kpi-queries.sql](kpi-queries.sql) holds 18 read-only queries behind the metrics in section 7, checked against a scratch database; run them weekly in the SQL editor. Usage events are built (migration 019): when a person opens Home, Jars, Goals, Review, Plan or Settings, the app tells the database once per screen and person per page load (`record_usage`), and the database keeps one row per person, screen and day (`usage_events`: family, member, screen, day; no amount, note, name or email). Clients cannot read or write the table; only the owner reads it in the SQL editor. Decisions taken: children's visits are recorded the same way, as a count per member; rows older than 400 days are deleted now and then by the function itself (no scheduled job); nothing about it is shown in the app. Two queries use it: monthly review opened (#17) and people who only look (#18). Events start from the day the migration is applied, so those two have no history before it.
 
 ## 4. Suggested order
 
@@ -268,7 +268,7 @@ Data today: ✅ the database already holds it, 🟡 partly, 🔴 needs new track
 | **Spending control** | Budgeted categories within budget this month | The adult outcome | 🟡 (today's budgets only, no history) | Improving over months |
 | | Bills paid on or before the due date | Late fees are avoidable | ✅ | 95% |
 | | Month over month change in "Other" and uncategorised spending | Honest categories make the review useful | ✅ | Falling |
-| | Monthly review opened | The monthly check-in moment | 🔴 | Once a month |
+| | Monthly review opened | The monthly check-in moment | ✅ (from the day usage events started, query 17) | Once a month |
 | **Retention** | Families still active in week 4, and in month 3 | Whether it became a habit | ✅ | 50% in week 4 |
 | | Families at risk: were active, quiet for 14 days | A list to reach out to, or to trigger a reminder (#5) | ✅ | Track only |
 | **Health** | Share of expenses edited after saving | A high number means entry is error-prone | ✅ | Under 10% |
@@ -290,7 +290,7 @@ Data today: ✅ the database already holds it, 🟡 partly, 🔴 needs new track
 
 ### Gaps in what we can measure
 
-* **The database records changes, not visits.** Looking at the Home screen or opening the monthly review leaves no trace. Two metrics (monthly review opened, anyone who only looks) cannot be measured until the app records usage events. That is the second half of #22.
+* **Visits are recorded only from usage events onward.** Opening a screen is counted once a day per person and screen (migration 019), so monthly review opened (query 17) and people who only look (query 18) have no history before that day. Looking at a screen without opening a new one, or for how long, is not measured.
 * **No history of budgets or deleted rows.** "Within budget" uses today's budgets. Deleting an expense removes it entirely, so mistakes fixed by deleting are invisible.
 * **Very small sample.** Until several families use the app, read the counts and each family's story, not the percentages.
 

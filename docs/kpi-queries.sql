@@ -2,7 +2,7 @@
 --
 -- HOW TO USE
 --   Paste one query at a time into the Supabase SQL editor (it runs as the database owner, which is what reads auth.users).
---   Run them weekly (queries 1 to 6) and monthly (the rest). About 15 minutes.
+--   Run them weekly (queries 1 to 6) and monthly (the rest). About 15 minutes. Queries 17 and 18 need migration 019 (usage events).
 --
 -- PRIVACY AND SAFETY
 --   * Every query returns COUNTS AND PERCENTAGES per family or per week. None returns a name, an email address or an amount.
@@ -96,7 +96,7 @@ where created_at > now() - interval '90 days';
 -- 7. FEATURE ADOPTION: how many families use each feature (ever).
 -- ---------------------------------------------------------------------------------------------------------------------
 select (select count(*) from families)                                                as families,
-       (select count(distinct family_id) from expenses where tag_id is not null)      as using_tags,
+       (select count(distinct e.family_id) from expenses e join expense_tags et on et.expense_id = e.id) as using_tags,
        (select count(distinct family_id) from expenses where receipt_path is not null) as using_receipt_photos,
        (select count(distinct family_id) from expenses where import_batch is not null) as using_csv_import,
        (select count(distinct family_id) from bills)                                  as using_bills,
@@ -235,3 +235,46 @@ select count(*)                                                         as photo
        pg_size_pretty(coalesce(avg((metadata ->> 'size')::bigint), 0)::bigint) as average_size
 from storage.objects
 where bucket_id = 'receipts';
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- 17. MONTHLY REVIEW OPENED (needs usage_events, migration 019): per month, how many families had a parent open Review,
+--     out of the families that had any parent open any screen that month. Counts only.
+--     Note: opened screens are recorded once a day per person and screen, from the day migration 019 was applied.
+-- ---------------------------------------------------------------------------------------------------------------------
+with active as (
+  select date_trunc('month', u.day)::date as month, u.family_id,
+         bool_or(u.kind = 'review') as opened_review
+  from usage_events u
+  join members m on m.user_id = u.member_id and m.role = 'parent'
+  group by 1, 2
+)
+select month,
+       count(*)                                                as families_with_a_parent_in_the_app,
+       count(*) filter (where opened_review)                   as opened_review,
+       round(100.0 * count(*) filter (where opened_review) / count(*), 0) as pct_opened_review
+from active
+group by month
+order by month desc;
+
+-- ---------------------------------------------------------------------------------------------------------------------
+-- 18. PEOPLE WHO ONLY LOOK (needs usage_events): per week, members who opened a screen but changed nothing that week
+--     (no expense, request, jar move or goal contribution), as a share of everyone who opened the app. Counts only.
+-- ---------------------------------------------------------------------------------------------------------------------
+with seen as (
+  select date_trunc('week', day)::date as week, member_id from usage_events group by 1, 2
+), acted as (
+  select date_trunc('week', created_at)::date as week, member_id from (
+    select created_at, member_id from expenses
+    union all select created_at, child_id from purchase_requests
+    union all select created_at, child_id from jar_entries where kind = 'move'
+    union all select created_at, member_id from goal_contributions
+  ) e group by 1, 2
+)
+select s.week,
+       count(*)                                          as members_who_opened_the_app,
+       count(*) filter (where a.member_id is null)       as only_looked,
+       round(100.0 * count(*) filter (where a.member_id is null) / count(*), 0) as pct_only_looked
+from seen s
+left join acted a on a.week = s.week and a.member_id = s.member_id
+group by s.week
+order by s.week desc;
