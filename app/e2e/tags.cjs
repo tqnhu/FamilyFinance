@@ -65,6 +65,8 @@ const patches = (s, tb = 'expenses') => s.log.filter(l => l.k === 'PATCH' && l.t
   /* ===== choosing a tag on an expense ===== */
   let s = await open('/'), pg = s.page
   await pg.click('button[aria-label="Add expense"]')
+  const order = await pg.locator('.sheet').first().evaluate(el => [...el.querySelectorAll('label, #cat-label, .tagpicker')].map(n => n.id === 'cat-label' ? 'Category' : n.classList.contains('tagpicker') ? 'Tags' : n.textContent.trim().split(/[(\n]/)[0].trim()).filter(t => ['Amount', 'Note', 'Date', 'Category', 'Tags'].includes(t)))
+  ok(JSON.stringify(order) === '["Amount","Note","Date","Category","Tags"]', 'the form is in the order Amount, Note, Date, Category, Tags: ' + JSON.stringify(order))
   const chips = await pg.locator('.tagpicker .chip').allInnerTexts()
   ok(chips.includes('#Vietnam trip') && chips.includes('#Kitchen') && chips.includes('＋ New tag'), 'the tag picker lists the family\'s tags and a "New tag" button')
   ok(!chips.some(c => c.includes('Old project')), 'archived tags are not offered for a new expense')

@@ -182,7 +182,10 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
       <form className="sheet" onClick={e => e.stopPropagation()} onSubmit={save}>
         <h2>{editing ? 'Edit expense' : 'Add expense'}</h2>
         <label>Amount (€)<input autoFocus inputMode="decimal" placeholder="0.00" value={amount} onChange={e => setAmount(e.target.value)} /></label>
-        <div className="chips">
+        <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
+        <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
+        <div className="muted small" id="cat-label">Category</div>
+        <div className="chips" role="group" aria-labelledby="cat-label">
           {cats.map(c => (
             <button type="button" key={c.id} className={`chip ${cat === c.id ? 'on' : ''}`} onClick={() => { setPicked(true); setCat(c.id) }}>{c.emoji} {c.name}</button>
           ))}
@@ -208,8 +211,6 @@ export default function AddExpense({ cats, onClose, onSaved, expense, nameOf, de
             {auto.confidence !== 'high' && <button type="button" className="chip" onClick={() => { setPicked(true); setCat(suggestedCat.id) }}>Use {suggestedCat.name}</button>}
           </div>
         )}
-        <label>Note (optional)<input value={note} onChange={e => setNote(e.target.value)} /></label>
-        <label>Date<input type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} /></label>
         <TagsPicker tags={tags} value={tagIds} onChange={v => { tagTouched.current = true; setTagIds(v) }} onCreate={createTag} />
         <label className="annual-opt">
           <input type="checkbox" checked={annual} onChange={e => { annualTouched.current = true; setAnnual(e.target.checked) }} />
