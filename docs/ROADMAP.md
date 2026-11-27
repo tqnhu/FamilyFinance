@@ -44,7 +44,7 @@ Related documents: [ARCHITECTURE.md](ARCHITECTURE.md) (how it is built) and [USE
 | 12 | More than one tag per expense (up to 5, join table) | ✅ Done | Low–medium | M | none |
 | 13 | Data export (download everything) | 📋 Planned | Medium | S–M | none |
 | 14 | Change email, remove a member, leave a family, delete an account | 📋 Planned | Medium–high | M | decisions on what happens to someone's data |
-| 15 | Automatic tests on every push | 🔜 Next | High | S–M | none |
+| 15 | Automatic tests on every push | ✅ Done | High | S–M | none |
 | 16 | Backups | 🧑 Owner | High | S | a Supabase plan decision |
 | 17 | Two Supabase dashboard settings (leaked-password protection, reset-link address) | 🧑 Owner | Medium | S | none |
 | 18 | Error reporting | 📋 Planned | Medium | S–M | a service choice |
@@ -185,7 +185,7 @@ Shows where the money went and what share that is.
 
 ### D. Trust, safety and engineering health
 
-**#15 Automatic tests on every push 🔜.** Today the database checks, unit tests and browser checks run only when someone runs them, and every push deploys. A GitHub Actions workflow would run them on each push. Unit tests are easy, the database tests need a Postgres service, and the browser tests need Playwright.
+**#15 Automatic tests on every push ✅.** `.github/workflows/tests.yml` runs on every push and pull request, in three parallel jobs: types, unit tests and the build; the database checks against a Postgres 16 service (`supabase/tests/run-all.sh`); and the browser checks with Playwright (`app/e2e/run-all.sh`, one retry per script, output kept as a download when it fails). Vercel still deploys `main` on its own, so a red run is a warning to look, not a block; making it a block means turning on branch protection with these checks required, or setting Vercel to wait for them (a GitHub or Vercel setting, not code). Not run: the linter, which still reports warnings.
 
 **#16 Backups 🧑.** This is family financial data. Check what the Supabase plan includes: point-in-time recovery needs a paid plan, and a scheduled export is the cheaper fallback.
 

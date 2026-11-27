@@ -5,14 +5,11 @@ adding and editing expenses, receipt photos, CSV import, monthly fees, joining a
 They check what is sent to the database and what appears on screen. About 630 checks.
 
 ```bash
-# once: Playwright must be installed (the cloud session has it; elsewhere: npm i -g playwright && npx playwright install chromium)
-OUT=/tmp/ff-e2e; mkdir -p $OUT/ui
-python3 app/e2e/make_fixtures.py $OUT          # needs Pillow; makes the photos and CSV files
-cd app && npm run dev -- --port 5173 &          # the tests open http://localhost:5173
-for t in edit-expenses receipts-import monthly-fees join-family tags home-tags category-details account-settings getting-started-badges plan-upcoming-bills review annual-fee classify rules tidy; do
-  NODE_PATH=$(npm root -g) node e2e/$t.cjs $OUT
-done
+# once: Playwright must be installed (the cloud session has it; elsewhere: npm i -g playwright && npx playwright install chromium) and Pillow (pip install Pillow)
+app/e2e/run-all.sh /tmp/ff-e2e      # starts the dev server if needed, runs every script (one retry each), prints ok / FAIL
+# one script on its own: start `npm run dev -- --port 5173` in app/, then
+NODE_PATH=$(npm root -g) node app/e2e/tags.cjs /tmp/ff-e2e
 ```
 
-Each script prints `PASS:` / `FAIL:` lines and exits non-zero on a failure. Screenshots are written to `$OUT/ui/`.
+GitHub runs all of this on every push (`.github/workflows/tests.yml`). Each script prints `PASS:` / `FAIL:` lines and exits non-zero on a failure. Screenshots are written to `$OUT/ui/`.
 The stub answers for the Supabase project in `app/.env`; it never contacts it.

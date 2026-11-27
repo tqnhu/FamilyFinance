@@ -1,0 +1,51 @@
+name: Tests
+
+# Runs on every push and pull request. Vercel deploys main on its own, so a red run here is the signal to look before relying on it.
+on:
+  push:
+  pull_request:
+
+jobs:
+  app:
+    name: Types, unit tests, build
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: app } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+      - run: npx tsc -b
+      - run: npm test
+      - run: npm run build
+
+  database:
+    name: Database checks
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    env: { PGHOST: localhost, PGPORT: 5432, PGUSER: postgres, PGPASSWORD: postgres }
+    steps:
+      - uses: actions/checkout@v4
+      - run: supabase/tests/run-all.sh
+
+  browser:
+    name: Browser checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: app/package-lock.json }
+      - run: npm ci
+        working-directory: app
+      - run: npm i -g playwright && npx playwright install --with-deps chromium
+      - run: pip install Pillow
+      - run: app/e2e/run-all.sh "$RUNNER_TEMP/ff-e2e"
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with: { name: browser-test-output, path: '${{ runner.temp }}/ff-e2e', retention-days: 7 }

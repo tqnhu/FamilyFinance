@@ -24,3 +24,5 @@ psql -v ON_ERROR_STOP=1 -q -d ff_test -f supabase/tests/privileges.sql
 ```
 
 Never run these against your real Supabase project: the test inserts fake users.
+
+`supabase/tests/run-all.sh [database]` runs all of the above in order against a scratch Postgres (set PGHOST, PGPORT, PGUSER, PGPASSWORD). GitHub runs it on every push.

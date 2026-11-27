@@ -378,7 +378,7 @@ Each row can be marked as an **annual fee** (ticked automatically when the descr
 * **Schema:** `supabase/schema.sql` builds a new project in one go. An existing project upgrades by running
   `supabase/migrations/002` to `018` in order (each is safe to run once).
 * **Tests:** 418 database checks (`supabase/tests`, run on a scratch Postgres with a stand-in for Supabase's auth and
-  storage), 258 unit tests (`app/src/lib`), and about 640 browser checks against a stubbed backend (`app/e2e`).
+  storage), 258 unit tests (`app/src/lib`), and about 640 browser checks against a stubbed backend (`app/e2e`). GitHub Actions (`.github/workflows/tests.yml`) runs all three, plus the type check and the build, on every push.
 * **Secrets:** none are stored in the repository. The committed `.env` holds only the public URL and publishable key.
 
 ## 9. Known limits
