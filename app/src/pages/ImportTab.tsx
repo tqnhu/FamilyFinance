@@ -111,6 +111,7 @@ export default function ImportTab() {
     if (!member || !chosen.length || missing) return
     setBusy(true); setMsg('')
     const batch = crypto.randomUUID()
+    const anyAnnual = chosen.some(r => r.annual)
     let n = 0
     for (let i = 0; i < chosen.length; i += CHUNK) {
       const tagRows: { expense_id: string; tag_id: string }[] = []
@@ -120,7 +121,8 @@ export default function ImportTab() {
         return {
         id, family_id: member.family_id, member_id: member.user_id, category_id: r.cat, amount_cents: r.cents,
         note: r.note, spent_on: r.date, import_batch: batch,
-        ...(r.annual ? { annual_fee: true } : {}), // only sent when ticked, so a normal import never depends on it
+        // Every row of one request must have the same fields: a field missing from some rows is sent to the database as null, not as its default.
+        ...(anyAnnual ? { annual_fee: Boolean(r.annual) } : {}),
       } })
       let { error } = await supabase.from('expenses').insert(part)
       if (!error && tagRows.length) ({ error } = await supabase.from('expense_tags').insert(tagRows))

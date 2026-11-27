@@ -18,6 +18,19 @@ export function parseCsv(text: string): Table {
   const { data } = Papa.parse<string[]>(clean, { skipEmptyLines: 'greedy', delimitersToGuess: [',', ';', '\t', '|'] })
   const all = (data as string[][]).map(r => r.map(c => (c ?? '').trim()))
   if (!all.length) return { headers: [], rows: [] }
+  // The header is the nearest line above the first transaction that has several named cells. Banks often leave out the empty cells at the
+  // end of a line, so a debit can have one cell less than the header and a credit: those lines are padded, not thrown away.
+  const hasDate = (r: string[]) => r.some(c => parseDate(c) !== null || parseDate(c, 'mdy') !== null)
+  const firstTx = all.findIndex(looksLikeData)
+  if (firstTx > 0) {
+    let h = -1
+    for (let i = firstTx - 1; i >= 0; i--) if (all[i].filter(Boolean).length >= 3) { h = i; break }
+    if (h >= 0 && !hasDate(all[h])) {
+      const width = all[h].length
+      const rows = all.slice(h + 1).filter(r => (r.length === width || r.length === width - 1) && hasDate(r)).map(r => (r.length === width ? r : [...r, '']))
+      if (rows.length) return { headers: all[h].map((c, i) => c || `Column ${i + 1}`), rows }
+    }
+  }
   const counts = new Map<number, number>()
   for (const r of all) counts.set(r.length, (counts.get(r.length) ?? 0) + 1)
   const usual = [...counts.entries()].sort((a, b) => b[1] - a[1] || b[0] - a[0])[0][0]
@@ -141,12 +154,14 @@ export function detectMapping(t: Table): Mapping {
     const guess = [...Array(n).keys()].find(i => i !== date && !skipAmount.test(norm(t.headers[i])) && share(i, v => parseAmount(v) !== null) >= 0.8 && col(i).some(v => /[.,]\d{2}$/.test(v)))
     if (guess !== undefined) amount = guess
   }
-  let description = byHeader(t.headers, [/^naam \/ omschrijving$/, /^(description|omschrijving|payee|merchant|beneficiary|counterparty)/, /^(name|naam|details|memo|reference|verwendungszweck|mededelingen|concept)/, /description|omschrijving|name|naam|memo|details/])
+  let description = byHeader(t.headers, [/^naam \/ omschrijving$/, /^(description|omschrijving|payee|merchant|beneficiary|counterparty|libell|intitul|designation)/, /^(name|naam|details|memo|reference|verwendungszweck|mededelingen|concept)/, /description|omschrijving|name|naam|memo|details/])
   if (description < 0) {
     let best = -1, bestLen = 0
     for (let i = 0; i < n; i++) {
       if (i === date || i === amount) continue
-      const v = col(i); const len = v.length ? v.reduce((s, x) => s + x.length, 0) / v.length : 0
+      const v = col(i)
+      if (share(i, x => parseDate(x) !== null) >= 0.8) continue // a second date column (value date) is not the description
+      const len = v.length ? v.reduce((s, x) => s + x.length, 0) / v.length : 0
       if (len > bestLen) { best = i; bestLen = len }
     }
     description = best
@@ -187,6 +202,8 @@ export function readExpenses(t: Table, m: Mapping, o: Options, cap = 2000): { ro
   t.rows.forEach((r, i) => {
     const date = parseDate(r[m.date] ?? '', o.dateOrder)
     let cents = parseAmount(r[m.amount] ?? '')
+    // An empty amount with a number further along is a credit in a separate Credit column: money in, not a problem row.
+    if (date !== null && cents === null && !(r[m.amount] ?? '') && r.slice(m.amount + 1).some(c => parseAmount(c) !== null)) { skipped.income++; return }
     if (date === null || cents === null) { skipped.unreadable++; return }
     if (cents === 0) { skipped.zero++; return }
     if (m.direction !== null) {

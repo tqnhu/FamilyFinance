@@ -195,3 +195,33 @@ describe('files without a header row', () => {
     expect(t.headerless).toBe(true); expect(t.rows).toHaveLength(2)
   })
 })
+
+describe('bank file where the header is wider than most lines (separate Debit and Credit columns)', () => {
+  const text = [
+    'Date opération;Date valeur;libellé;Débit;Crédit;',
+    '24/11/2026;24/11/2026;VIR ALLOCATION SEPA;; 42;',
+    '23/11/2026;23/11/2026;PRLV IDFM;-7,36;',
+    '23/11/2026;23/11/2026;CARTE 22/11 SHOP VELIZY;-15,99;',
+    '20/11/2026;20/11/2026;CARTE 19/11 Disney PLUS;-5,99;',
+    '01/11/2026;01/11/2026;VIR INST SOMEONE;; 1907;',
+  ].join('\n')
+  it('keeps the header, and the first debit as a transaction', () => {
+    const t = parseCsv(text)
+    expect(t.headerless).toBeFalsy(); expect(t.headers.slice(0, 5)).toEqual(['Date opération', 'Date valeur', 'libellé', 'Débit', 'Crédit'])
+    const m = detectMapping(t); expect(m.date).toBe(0); expect(m.amount).toBe(3); expect(m.description).toBe(2)
+    const r = readExpenses(t, m, { dateOrder: detectDateOrder(t.rows.map(x => x[m.date])), expensesAre: detectSign(t, m) })
+    expect(r.rows.map(x => [x.note, x.cents])).toEqual([['PRLV IDFM', 736], ['CARTE 22/11 SHOP VELIZY', 1599], ['CARTE 19/11 Disney PLUS', 599]])
+    expect(r.skipped).toEqual({ income: 2, unreadable: 0, zero: 0 })
+  })
+})
+
+describe('the same bank layout with more credits than debits', () => {
+  it('still keeps every debit (they used to be dropped as lines of an unusual width)', () => {
+    const lines = ['Date opération;Date valeur;libellé;Débit;Crédit;']
+    for (let i = 0; i < 6; i++) lines.push(`0${i + 1}/11/2026;0${i + 1}/11/2026;VIR IN ${i};; ${10 + i},50;`)
+    lines.push('10/11/2026;10/11/2026;PRLV ONE;-7,36;', '11/11/2026;11/11/2026;CARTE TWO;-15,99;')
+    const t = parseCsv(lines.join('\n')); const m = detectMapping(t)
+    const r = readExpenses(t, m, { dateOrder: 'dmy', expensesAre: detectSign(t, m) })
+    expect(r.rows.map(x => x.note)).toEqual(['PRLV ONE', 'CARTE TWO']); expect(r.skipped.income).toBe(6)
+  })
+})

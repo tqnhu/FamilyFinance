@@ -71,7 +71,9 @@ const csv = [
   const by = n => rows.find(r => r.note.includes(n))
   ok(rows.length === 4, 'four rows imported')
   ok(by('ANWB').annual_fee === true && by('Jaarlijkse').annual_fee === true, 'annual rows are sent with annual_fee = true')
-  ok(!('annual_fee' in by('Albert')) && !('annual_fee' in by('Dentist')), 'other rows do not send the field at all (a normal import never depends on it)')
+  ok(by('Albert').annual_fee === false && by('Dentist').annual_fee === false, 'the other rows of the same request send annual_fee = false (a field missing from some rows would reach the database as null and be refused)')
+  const keysets = new Set(posts(s).map(r => Object.keys(r).sort().join()))
+  ok(keysets.size === 1, 'every row of one import request has exactly the same fields: ' + [...keysets].join(' | '))
   ok(rows.every(r => !('bill_id' in r) && !('monthly_fee' in r)), 'the protected columns are still never sent')
   await s.b.close()
 
